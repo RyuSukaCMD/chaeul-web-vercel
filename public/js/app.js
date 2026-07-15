@@ -52,17 +52,59 @@
     )
     $$(".reveal").forEach((el) => io.observe(el))
 
+    // ─── Render highlights strip ───
+    if (D.highlights && $("#highlightStrip")) {
+        $("#highlightStrip").innerHTML = D.highlights
+            .map(
+                (h) => `
+        <div class="highlight-item">
+            <div class="highlight-num">${h.num}</div>
+            <div class="highlight-label">${h.label}</div>
+        </div>`
+            )
+            .join("")
+    }
+
     // ─── Render features ───
     $("#featureGrid").innerHTML = D.features
         .map(
             (f) => `
         <div class="feature-card reveal">
+            ${f.tag ? `<span class="feat-tag">${f.tag}</span>` : ""}
             <div class="feature-ico">${f.icon}</div>
             <h3>${f.title}</h3>
             <p>${f.desc}</p>
         </div>`
         )
         .join("")
+
+    // ─── Render FAQ ───
+    if (D.faq && $("#faqList")) {
+        $("#faqList").innerHTML = D.faq
+            .map(
+                (f) => `
+        <div class="faq-item">
+            <div class="faq-q">${f.q}<span class="faq-ico">+</span></div>
+            <div class="faq-a"><div class="faq-a-inner">${f.a}</div></div>
+        </div>`
+            )
+            .join("")
+        $$(".faq-item").forEach((item) => {
+            const q = item.querySelector(".faq-q")
+            const a = item.querySelector(".faq-a")
+            q.addEventListener("click", () => {
+                const isOpen = item.classList.contains("open")
+                $$(".faq-item").forEach((o) => {
+                    o.classList.remove("open")
+                    o.querySelector(".faq-a").style.maxHeight = null
+                })
+                if (!isOpen) {
+                    item.classList.add("open")
+                    a.style.maxHeight = a.scrollHeight + "px"
+                }
+            })
+        })
+    }
 
     // spotlight hover on feature cards
     $$(".feature-card").forEach((card) => {
@@ -176,84 +218,89 @@
         requestAnimationFrame(tick)
     }
 
-    // ─── Live data (SSE real-time + polling fallback) ───
+    // ─── Live data (auto-scroll marquee, no manual scroll) ───
     const iconFor = (name) => (name || "?").trim().charAt(0).toUpperCase() || "?"
 
+    // Bungkus daftar item jadi marquee yang bergulir mulus & loop.
+    // - Bila item cukup untuk mengisi > tinggi kolom → duplikat konten &
+    //   animasikan translateY(0 → -50%) sehingga loop tak terlihat sambungannya.
+    // - Bila item sedikit → tampilkan statis (biar ga "loncat" aneh).
+    // - Kecepatan konsisten: durasi ∝ jumlah item.
+    const MIN_LOOP = 6 // minimal item agar mulai berputar
+    function paintMarquee(el, html, count) {
+        if (!el) return
+        if (!count) {
+            el.innerHTML = `<div class="empty">${el.dataset.empty || "Belum ada data."}</div>`
+            return
+        }
+        if (count < MIN_LOOP) {
+            // statis (tidak loop) — rata atas
+            el.innerHTML = `<ul class="live-list">${html}</ul>`
+            return
+        }
+        // durasi: makin banyak item makin lama (kecepatan tetap ~enak dibaca)
+        const dur = Math.max(14, count * 2.6)
+        el.innerHTML = `<div class="marquee-track" style="animation-duration:${dur}s">${html}${html}</div>`
+    }
+
     // User: format "62857XXXX - (Nama)"
+    function userItemHtml(u) {
+        const disp = u.display || `${u.number || "•••"} - (${u.name || "User"})`
+        const nm = (u.name || (u.display && u.display.split("(")[1]) || "U").replace(")", "")
+        return `
+        <div class="live-item">
+            <div class="av">${iconFor(nm)}</div>
+            <div class="meta">
+                <div class="t1 mono-num">${escapeHtml(disp)}</div>
+            </div>
+        </div>`
+    }
     function renderUsers(items, total) {
         $("#liveUsersCount").textContent = total
-        const ul = $("#liveUsers")
-        if (!items.length) {
-            ul.innerHTML = `<div class="empty">Belum ada user terdaftar.</div>`
-            return
-        }
-        ul.innerHTML = items
-            .slice(-7)
-            .reverse()
-            .map((u) => {
-                const disp = u.display || `${u.number || "•••"} - (${u.name || "User"})`
-                return `
-            <li class="live-item">
-                <div class="av">${iconFor(u.name)}</div>
-                <div class="meta">
-                    <div class="t1 mono-num">${escapeHtml(disp)}</div>
-                </div>
-            </li>`
-            })
-            .join("")
+        const el = $("#liveUsers")
+        el.dataset.empty = "Belum ada user terdaftar."
+        const list = items.slice().reverse()
+        paintMarquee(el, list.map(userItemHtml).join(""), list.length)
     }
+
     // Grup: nama grup saja
+    function groupItemHtml(g) {
+        return `
+        <div class="live-item">
+            <div class="av">${iconFor(g.name)}</div>
+            <div class="meta"><div class="t1">${escapeHtml(g.name || "Grup")}</div></div>
+            <span class="tag ${g.type === "public" ? "public" : "private"}">${g.type || "private"}</span>
+        </div>`
+    }
     function renderGroups(items, total) {
         $("#liveGroupsCount").textContent = total
-        const ul = $("#liveGroups")
-        if (!items.length) {
-            ul.innerHTML = `<div class="empty">Belum ada grup ter-register.</div>`
-            return
-        }
-        ul.innerHTML = items
-            .slice(-7)
-            .reverse()
-            .map(
-                (g) => `
-            <li class="live-item">
-                <div class="av">${iconFor(g.name)}</div>
-                <div class="meta"><div class="t1">${escapeHtml(g.name)}</div></div>
-                <span class="tag ${g.type === "public" ? "public" : "private"}">${g.type || "private"}</span>
-            </li>`
-            )
-            .join("")
+        const el = $("#liveGroups")
+        el.dataset.empty = "Belum ada grup ter-register."
+        const list = items.slice().reverse()
+        paintMarquee(el, list.map(groupItemHtml).join(""), list.length)
     }
+
     // Fishing feed
     const fishFeed = []
-    function renderFishing() {
-        const ul = $("#liveFishing")
-        if (!ul) return
-        if (!fishFeed.length) {
-            ul.innerHTML = `<div class="empty">Menunggu tangkapan...</div>`
-            return
-        }
-        ul.innerHTML = fishFeed
-            .slice(-7)
-            .reverse()
-            .map((f) => {
-                const r = (f.rarity || "common").toLowerCase()
-                const val = f.value ? `+Rp ${Number(f.value).toLocaleString("id-ID")}` : ""
-                return `
-            <li class="fish-item">
-                <span class="fi-dot r-${r}"></span>
-                <div class="fi-meta">
-                    <div class="fi-name">${escapeHtml(f.fish)}</div>
-                    <div class="fi-who">${escapeHtml(f.name)}${f.island ? " · " + escapeHtml(f.island) : ""}</div>
-                </div>
-                <span class="fi-val">${val}</span>
-            </li>`
-            })
-            .join("")
+    function fishItemHtml(f) {
+        const r = (f.rarity || "common").toLowerCase()
+        const val = f.value ? `+Rp ${Number(f.value).toLocaleString("id-ID")}` : ""
+        return `
+        <div class="fish-item">
+            <span class="fi-dot r-${r}"></span>
+            <div class="fi-meta">
+                <div class="fi-name">${escapeHtml(f.fish)}</div>
+                <div class="fi-who">${escapeHtml(f.name)}${f.island ? " · " + escapeHtml(f.island) : ""}</div>
+            </div>
+            <span class="fi-val">${val}</span>
+        </div>`
     }
-    function pushFish(f) {
-        fishFeed.push(f)
-        while (fishFeed.length > 20) fishFeed.shift()
-        renderFishing()
+    function renderFishing() {
+        const el = $("#liveFishing")
+        if (!el) return
+        el.dataset.empty = "Menunggu tangkapan..."
+        const list = fishFeed.slice().reverse()
+        paintMarquee(el, list.map(fishItemHtml).join(""), list.length)
     }
 
     function applyStats(s) {
@@ -267,33 +314,158 @@
 
     // Vercel = serverless → tidak ada SSE. Pakai polling ke /api/live
     // (1 request gabungan berisi stats + user + grup + fishing feed).
+    // Re-render HANYA saat data berubah, supaya animasi scroll tidak
+    // ter-reset di tengah jalan (itu yang bikin terlihat "kepotong").
+    let sigUsers = "",
+        sigGroups = "",
+        sigFish = ""
     let polledOnce = false
+
     async function poll() {
         try {
             const r = await fetch("/api/public?action=live")
             if (!r.ok) throw new Error("HTTP " + r.status)
             const d = await r.json()
             applyStats(d.stats || {})
-            renderUsers(d.users || [], d.stats?.users || 0)
-            renderGroups(d.groups || [], d.stats?.groups || 0)
-            fishFeed.length = 0
-            ;(d.fishing || []).forEach((x) => fishFeed.push(x))
-            renderFishing()
+
+            const users = d.users || []
+            const uSig = JSON.stringify(users.map((u) => u.display))
+            if (uSig !== sigUsers) {
+                sigUsers = uSig
+                renderUsers(users, d.stats?.users || 0)
+            } else {
+                $("#liveUsersCount").textContent = d.stats?.users || 0
+            }
+
+            const groups = d.groups || []
+            const gSig = JSON.stringify(groups.map((g) => g.name + g.type))
+            if (gSig !== sigGroups) {
+                sigGroups = gSig
+                renderGroups(groups, d.stats?.groups || 0)
+            } else {
+                $("#liveGroupsCount").textContent = d.stats?.groups || 0
+            }
+
+            // Fishing: gabung data nyata (bila ada) + feed simulasi yang selalu hidup.
+            realFish = d.fishing || []
+            syncFishFeed()
             polledOnce = true
         } catch {
-            // Jangan reset tampilan ke 0 setiap gagal (bikin flicker/"ngebug").
-            // Hanya tampilkan state kosong bila memang belum pernah sukses.
             if (!polledOnce) {
                 renderUsers([], 0)
                 renderGroups([], 0)
-                renderFishing()
+                syncFishFeed()
             }
+        }
+    }
+
+    // ─── Fishing feed simulasi (selalu hidup, loop terus) ───
+    const FISH_NAMES = [
+        "Aqua Serpent",
+        "Coral Whisper",
+        "Void Angler",
+        "Sunlit Marlin",
+        "Ghost Koi",
+        "Emberfin",
+        "Crystal Ray",
+        "Storm Eel",
+        "Lunar Jelly",
+        "Golden Arowana",
+        "Abyssal Lantern",
+        "Prism Bass",
+        "Frost Piranha",
+        "Nebula Squid",
+        "Titan Grouper",
+        "Whispering Trout",
+        "Obsidian Shark",
+        "Radiant Puffer",
+        "Mistral Carp",
+        "Dawn Seahorse"
+    ]
+    const FISH_ANGLERS = [
+        "Rendy",
+        "Sasha",
+        "Bagas",
+        "Nadia",
+        "Fikri",
+        "Alya",
+        "Dimas",
+        "Citra",
+        "Yoga",
+        "Putri",
+        "Reza",
+        "Maya",
+        "Galih",
+        "Intan",
+        "Bima",
+        "Tari"
+    ]
+    const FISH_ISLANDS = [
+        "Fisherman Isle",
+        "Coral Reef",
+        "Vulcanic Bay",
+        "Sacred Lake",
+        "Deep Sea",
+        "Rocky Shore",
+        "Haunted Cove"
+    ]
+    const FISH_RARITIES = [
+        { r: "common", w: 34, v: [500, 3000] },
+        { r: "uncommon", w: 24, v: [3000, 8000] },
+        { r: "rare", w: 16, v: [8000, 18000] },
+        { r: "epic", w: 11, v: [18000, 35000] },
+        { r: "legendary", w: 7, v: [35000, 70000] },
+        { r: "mythical", w: 4, v: [70000, 130000] },
+        { r: "secret", w: 2, v: [130000, 250000] },
+        { r: "ephemeral", w: 1.3, v: [250000, 500000] },
+        { r: "unreal", w: 0.7, v: [500000, 1200000] }
+    ]
+    const pick = (a) => a[Math.floor(Math.random() * a.length)]
+    const rint = (a, b) => Math.floor(a + Math.random() * (b - a))
+    function pickRarity() {
+        const tot = FISH_RARITIES.reduce((s, x) => s + x.w, 0)
+        let n = Math.random() * tot
+        for (const x of FISH_RARITIES) {
+            if ((n -= x.w) <= 0) return x
+        }
+        return FISH_RARITIES[0]
+    }
+    function makeFish() {
+        const rar = pickRarity()
+        return {
+            name: pick(FISH_ANGLERS),
+            fish: pick(FISH_NAMES),
+            rarity: rar.r,
+            value: rint(rar.v[0], rar.v[1]),
+            island: pick(FISH_ISLANDS),
+            _sim: true
+        }
+    }
+
+    // Simulasi dibuat SEKALI dgn cukup item → marquee loop selamanya tanpa
+    // re-render (mulus, tidak "kepotong"). Hanya di-render ulang bila data
+    // NYATA dari server berubah.
+    const simFish = []
+    for (let i = 0; i < 14; i++) simFish.push(makeFish())
+
+    let realFish = []
+    function syncFishFeed() {
+        // Data nyata di atas, disusul simulasi supaya feed selalu penuh & hidup.
+        fishFeed.length = 0
+        realFish.forEach((x) => fishFeed.push(x))
+        simFish.forEach((x) => fishFeed.push(x))
+        while (fishFeed.length > 26) fishFeed.shift()
+        const s = JSON.stringify(fishFeed.map((f) => f.fish + f.name + f.value))
+        if (s !== sigFish) {
+            sigFish = s
+            renderFishing()
         }
     }
 
     function initLive() {
         poll()
-        setInterval(poll, 6000) // poll tiap 6 detik
+        setInterval(poll, 30000) // poll data nyata tiap 30 detik (marquee ga perlu sering)
+        syncFishFeed()
     }
     initLive()
 

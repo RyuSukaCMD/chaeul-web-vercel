@@ -37,6 +37,7 @@
                     <a href="#pricing">Harga</a>
                     <a href="#live">Live</a>
                     <a href="#how">Cara Kerja</a>
+                    <a href="#faq">FAQ</a>
                 </nav>
                 <a href="#pricing" class="btn btn-primary btn-sm">Sewa Sekarang</a>
                 <button class="nav-toggle" id="navToggle" aria-label="Menu">
@@ -111,10 +112,14 @@
         <!-- ✦ Features -->
         <section class="section" id="features">
             <div class="container">
+                <div class="highlight-strip reveal" id="highlightStrip"></div>
                 <div class="section-head reveal">
                     <span class="eyebrow">Kenapa Chaeul</span>
                     <h2>Fitur lengkap, performa premium.</h2>
-                    <p>Semua yang grupmu butuhkan dalam satu bot yang elegan.</p>
+                    <p>
+                        Lebih dari 250 command dalam satu bot yang elegan — dirancang untuk
+                        komunitas modern yang menuntut kecepatan, keandalan, dan pengalaman terbaik.
+                    </p>
                 </div>
                 <div class="feature-grid" id="featureGrid"></div>
             </div>
@@ -133,12 +138,15 @@
         </section>
 
         <!-- ✦ Live -->
-        <section class="section" id="live">
+        <section class="section section-alt" id="live">
             <div class="container">
                 <div class="section-head reveal">
                     <span class="eyebrow"><span class="live-dot"></span> Real-time</span>
                     <h2>Update langsung, transparan.</h2>
-                    <p>Pantau pertumbuhan user & grup terdaftar secara langsung.</p>
+                    <p>
+                        Pantau pertumbuhan user, grup terdaftar, dan tangkapan ikan secara langsung
+                        — mengalir otomatis, tanpa perlu refresh.
+                    </p>
                 </div>
                 <div class="live-grid live-grid-3 reveal">
                     <div class="live-card">
@@ -146,21 +154,21 @@
                             <h3>👥 User Terdaftar</h3>
                             <span class="badge" id="liveUsersCount">0</span>
                         </div>
-                        <ul class="live-list" id="liveUsers"></ul>
+                        <div class="marquee" id="liveUsers"></div>
                     </div>
                     <div class="live-card">
                         <div class="live-card-head">
                             <h3>💬 Grup Ter-register</h3>
                             <span class="badge" id="liveGroupsCount">0</span>
                         </div>
-                        <ul class="live-list" id="liveGroups"></ul>
+                        <div class="marquee" id="liveGroups"></div>
                     </div>
                     <div class="live-card">
                         <div class="live-card-head">
                             <h3>🎣 Fishing Feed</h3>
-                            <span class="badge">LIVE</span>
+                            <span class="badge"><span class="live-dot"></span> LIVE</span>
                         </div>
-                        <ul class="live-list" id="liveFishing"></ul>
+                        <div class="marquee" id="liveFishing"></div>
                     </div>
                 </div>
             </div>
@@ -174,6 +182,18 @@
                     <h2>Aktif dalam 4 langkah.</h2>
                 </div>
                 <div class="steps" id="steps"></div>
+            </div>
+        </section>
+
+        <!-- ✦ FAQ -->
+        <section class="section" id="faq">
+            <div class="container">
+                <div class="section-head reveal">
+                    <span class="eyebrow">Pertanyaan Umum</span>
+                    <h2>Masih ragu? Ini jawabannya.</h2>
+                    <p>Hal-hal yang paling sering ditanyakan sebelum menyewa Chaeul.</p>
+                </div>
+                <div class="faq-list reveal" id="faqList"></div>
             </div>
         </section>
 
