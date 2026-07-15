@@ -873,15 +873,14 @@ img {
     font-size: 0.9rem;
     color: var(--brand);
 }
-/* ─── Auto-scroll marquee (vertical, seamless loop, no manual scroll) ─── */
+/* ─── Auto-scroll marquee (digerakkan JS, no manual scroll) ─── */
 .marquee {
     position: relative;
-    height: auto; /* default: ikut konten (statis/kosong → tanpa blank space) */
+    height: auto; /* default: ikut konten → TIDAK PERNAH ada blank space */
     overflow: hidden;
 }
 .marquee.looping {
-    height: 320px; /* hanya saat berputar → butuh tinggi tetap */
-    /* fade atas & bawah biar item ga keliatan kepotong */
+    /* fade atas & bawah biar item ga keliatan kepotong (hanya saat loop) */
     -webkit-mask-image: linear-gradient(
         to bottom,
         transparent 0,
@@ -895,24 +894,10 @@ img {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    position: absolute;
     left: 0;
     right: 0;
     top: 0;
     will-change: transform;
-    animation: marqueeUp linear infinite;
-}
-.marquee:hover .marquee-track {
-    animation-play-state: paused;
-}
-@keyframes marqueeUp {
-    from {
-        transform: translateY(0);
-    }
-    to {
-        /* track berisi 2x konten; geser tepat setengah → loop mulus */
-        transform: translateY(-50%);
-    }
 }
 /* static list (fallback saat data sedikit / kosong) — TINGGI IKUT KONTEN,
    supaya tidak menyisakan blank space besar di HP saat item sedikit. */
@@ -1436,10 +1421,7 @@ img {
     .hero {
         padding: 120px 0 40px;
     }
-    /* live card di HP: tinggi marquee lebih pendek → tidak makan layar */
-    .marquee.looping {
-        height: 260px;
-    }
+    /* live card di HP: tinggi marquee diatur JS (max 260px). */
     .live-list {
         max-height: 260px;
     }

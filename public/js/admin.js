@@ -124,7 +124,10 @@
         $$("[data-cpn-del]").forEach((b) =>
             b.addEventListener("click", async () => {
                 if (!confirm("Hapus kupon " + b.dataset.cpnDel + "?")) return
-                await api("/api/admin?action=coupon", "POST", { op: "delete", code: b.dataset.cpnDel })
+                await api("/api/admin?action=coupon", "POST", {
+                    op: "delete",
+                    code: b.dataset.cpnDel
+                })
                 toast("🗑️ Kupon dihapus")
                 loadCoupons()
             })
@@ -227,7 +230,9 @@
             .join("")
     }
 
+    let LICENSES = []
     function renderLicenses(licenses) {
+        LICENSES = licenses || []
         const body = $("#licBody")
         if (!licenses.length) {
             body.innerHTML = `<tr><td colspan="7" class="empty-tbl">Belum ada lisensi.</td></tr>`
@@ -244,6 +249,7 @@
                 <td style="font-size:.82rem;color:var(--muted)">${l.expiresAt ? fmtDate(l.expiresAt) : "-"}</td>
                 <td>
                     <div class="row-actions">
+                        <button class="mini-btn" data-lic-edit="${l.key}">Edit</button>
                         <button class="mini-btn" data-lic-extend="${l.key}">+30h</button>
                         ${
                             l.status === "active"
@@ -277,7 +283,9 @@
                 <td class="mono">${o.contact || "-"}</td>
                 <td>${rp(o.price)}</td>
                 <td><span class="st ${o.status}">${o.status}</span>${
-                    o.licenseKey ? `<div class="mono" style="font-size:.72rem;color:var(--faint);margin-top:4px">${o.licenseKey}</div>` : ""
+                    o.licenseKey
+                        ? `<div class="mono" style="font-size:.72rem;color:var(--faint);margin-top:4px">${o.licenseKey}</div>`
+                        : ""
                 }</td>
                 <td>
                     <div class="row-actions">
@@ -306,6 +314,10 @@
 
     // ─── Actions ───
     function wireLicenseActions() {
+        // ── Edit lisensi: atur masa aktif (hari) & PIN sebebasnya ──
+        $$("[data-lic-edit]").forEach((b) =>
+            b.addEventListener("click", () => openEditLicense(b.dataset.licEdit))
+        )
         $$("[data-copy]").forEach((el) =>
             el.addEventListener("click", () => {
                 navigator.clipboard?.writeText(el.dataset.copy)
@@ -342,6 +354,77 @@
             })
         )
     }
+    // Modal edit lisensi — set masa aktif (hari dari sekarang) & PIN.
+    async function openEditLicense(key) {
+        const lic = LICENSES.find((l) => l.key === key) || {}
+        const daysLeft =
+            lic.expiresAt && lic.expiresAt > Date.now()
+                ? Math.max(0, Math.round(((lic.expiresAt - Date.now()) / 86400000) * 10) / 10)
+                : 0
+        // Ambil PIN saat ini.
+        let curPin = ""
+        try {
+            const pr = await fetch("/api/license?action=pin", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
+                body: JSON.stringify({ key })
+            }).then((x) => x.json())
+            curPin = pr.pin || ""
+        } catch {}
+
+        $("#modalBody").innerHTML = `
+            <h3>Edit Lisensi</h3>
+            <p class="modal-sub mono" style="word-break:break-all">${key}</p>
+            <div class="field">
+                <label>Masa Aktif (hari dari sekarang)</label>
+                <input id="edDays" type="number" step="0.5" value="${daysLeft}" />
+                <div class="hint">Sisa saat ini: ${daysLeft} hari. Set bebas — mis. 9999 (seumur hidup) atau 0 (langsung habis).</div>
+            </div>
+            <div class="field">
+                <label>PIN User Page (4–8 digit)</label>
+                <input id="edPin" inputmode="numeric" maxlength="8" value="${curPin}" />
+            </div>
+            <div style="display:flex;gap:10px;margin-top:6px">
+                <button class="btn btn-ghost btn-sm" id="edRandPin" type="button" style="flex:1;justify-content:center">🎲 Acak PIN</button>
+                <button class="btn btn-primary" id="edSave" type="button" style="flex:2;justify-content:center">💾 Simpan</button>
+            </div>`
+        openModal()
+
+        $("#edRandPin").addEventListener("click", () => {
+            $("#edPin").value = String(Math.floor(100000 + Math.random() * 900000))
+        })
+        $("#edSave").addEventListener("click", async () => {
+            const days = parseFloat($("#edDays").value)
+            const pin = $("#edPin").value.trim()
+            const btn = $("#edSave")
+            btn.disabled = true
+            btn.textContent = "Menyimpan…"
+            try {
+                if (!isNaN(days)) {
+                    await fetch("/api/license?action=setexpiry", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
+                        body: JSON.stringify({ key, days })
+                    })
+                }
+                if (pin) {
+                    await fetch("/api/license?action=setpin", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
+                        body: JSON.stringify({ key, pin })
+                    })
+                }
+                closeModal()
+                toast("✅ Lisensi diperbarui")
+                loadAll()
+            } catch {
+                btn.disabled = false
+                btn.textContent = "💾 Simpan"
+                toast("⚠️ Gagal menyimpan")
+            }
+        })
+    }
+
     async function setLicStatus(key, status) {
         await fetch("/api/license?action=status", {
             method: "POST",
@@ -355,14 +438,22 @@
     function wireOrderActions() {
         $$("[data-ord-paid]").forEach((b) =>
             b.addEventListener("click", async () => {
-                await api("/api/admin?action=order", "POST", { op: "status", id: b.dataset.ordPaid, status: "paid" })
+                await api("/api/admin?action=order", "POST", {
+                    op: "status",
+                    id: b.dataset.ordPaid,
+                    status: "paid"
+                })
                 toast("💰 Ditandai sudah bayar")
                 loadAll()
             })
         )
         $$("[data-ord-approve]").forEach((b) =>
             b.addEventListener("click", async () => {
-                const r = await api("/api/admin?action=order", "POST", { op: "approve", id: b.dataset.ordApprove, days: 30 })
+                const r = await api("/api/admin?action=order", "POST", {
+                    op: "approve",
+                    id: b.dataset.ordApprove,
+                    days: 30
+                })
                 if (r.ok) toast("🔑 Lisensi terbit: " + r.license.key)
                 else toast("⚠️ " + (r.error || "Gagal"))
                 loadAll()
@@ -370,7 +461,10 @@
         )
         $$("[data-ord-queue]").forEach((b) =>
             b.addEventListener("click", async () => {
-                const r = await api("/api/admin?action=order", "POST", { op: "queue", id: b.dataset.ordQueue })
+                const r = await api("/api/admin?action=order", "POST", {
+                    op: "queue",
+                    id: b.dataset.ordQueue
+                })
                 if (r.ok) toast("🤖 Diantre — bot akan join grup & terbitkan lisensi")
                 else toast("⚠️ Gagal")
                 loadAll()
@@ -448,6 +542,11 @@
                 <input id="nlDays" type="number" value="30" />
             </div>
             <div class="field">
+                <label>PIN User Page (opsional, 4–8 digit)</label>
+                <input id="nlPin" inputmode="numeric" placeholder="Kosongkan = acak" maxlength="8" />
+                <div class="hint">Dipakai user untuk login ke Panel Pengguna.</div>
+            </div>
+            <div class="field">
                 <label>Grup JID (opsional, kunci ke grup)</label>
                 <input id="nlGroup" placeholder="1203xxxx@g.us" />
             </div>
@@ -458,6 +557,7 @@
                 plan: $("#nlPlan").value,
                 ownerNumber: $("#nlOwner").value.trim(),
                 days: parseInt($("#nlDays").value, 10) || 30,
+                pin: $("#nlPin").value.trim() || undefined,
                 groupJid: $("#nlGroup").value.trim() || null
             }
             const r = await fetch("/api/license?action=create", {
@@ -466,9 +566,23 @@
                 body: JSON.stringify(body)
             }).then((x) => x.json())
             if (r.ok) {
-                closeModal()
-                toast("🔑 Lisensi dibuat: " + r.license.key)
-                loadAll()
+                $("#modalBody").innerHTML = `
+                    <h3>✅ Lisensi Dibuat</h3>
+                    <p class="modal-sub">Berikan detail ini ke pelanggan.</p>
+                    <div class="field">
+                        <label>License Key</label>
+                        <input readonly value="${r.license.key}" onclick="this.select()" />
+                    </div>
+                    <div class="field">
+                        <label>PIN User Page</label>
+                        <input readonly value="${r.pin}" onclick="this.select()" />
+                    </div>
+                    <button class="btn btn-primary" id="nlDone" style="width:100%;justify-content:center">Selesai</button>`
+                $("#nlDone").addEventListener("click", () => {
+                    closeModal()
+                    loadAll()
+                })
+                toast("🔑 Lisensi dibuat!")
             } else toast("⚠️ Gagal membuat lisensi")
         })
     })
@@ -497,7 +611,11 @@
 
     // ─── Helpers ───
     function fmtDate(ts) {
-        return new Date(ts).toLocaleDateString("id-ID", { day: "2-digit", month: "short", year: "numeric" })
+        return new Date(ts).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric"
+        })
     }
     function timeAgo(ts) {
         const s = Math.floor((Date.now() - ts) / 1000)

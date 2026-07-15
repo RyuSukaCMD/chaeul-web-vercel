@@ -197,16 +197,24 @@
 
     // ─── Counters ───
     function animateCounter(el, target) {
-        const start = Number(el.dataset.counter) || 0
-        if (start === target) return
+        if (!el) return
+        target = Math.max(0, Number(target) || 0) // jangan pernah negatif
+        const start = Math.max(0, Number(el.dataset.counter) || 0)
+        if (start === target) {
+            el.textContent = target.toLocaleString("id-ID")
+            return
+        }
         el.dataset.counter = target
+        // batalkan animasi sebelumnya agar tidak balapan (penyebab angka aneh/minus)
+        if (el._raf) cancelAnimationFrame(el._raf)
         const dur = 900
         const t0 = performance.now()
         function tick(t) {
             const p = Math.min((t - t0) / dur, 1)
             const eased = 1 - Math.pow(1 - p, 3)
-            el.textContent = Math.round(start + (target - start) * eased).toLocaleString("id-ID")
-            if (p < 1) requestAnimationFrame(tick)
+            const val = Math.max(0, Math.round(start + (target - start) * eased))
+            el.textContent = val.toLocaleString("id-ID")
+            if (p < 1) el._raf = requestAnimationFrame(tick)
             else {
                 el.textContent = target.toLocaleString("id-ID")
                 if (target > start) {
@@ -226,25 +234,58 @@
     //   animasikan translateY(0 → -50%) sehingga loop tak terlihat sambungannya.
     // - Bila item sedikit → tampilkan statis (biar ga "loncat" aneh).
     // - Kecepatan konsisten: durasi ∝ jumlah item.
-    const MIN_LOOP = 6 // minimal item agar mulai berputar
+    // Tinggi maksimum viewport marquee (mobile lebih pendek).
+    const marqueeMax = () => (window.innerWidth <= 768 ? 260 : 300)
+
+    // Marquee digerakkan JavaScript (bukan CSS animation) supaya:
+    //  - TIDAK PERNAH menyisakan blank space: tinggi viewport = min(max, konten).
+    //  - Kebal dari prefers-reduced-motion yang mematikan animasi CSS.
+    //  - Loop mulus: konten diduplikat, offset di-reset saat lewat setengah.
     function paintMarquee(el, html, count) {
         if (!el) return
-        // Saat statis/kosong → tinggi ikut konten (hilangkan blank space di HP).
-        // Saat loop → pakai tinggi tetap (kelas .looping mengembalikan height).
+        // hentikan animasi lama pada elemen ini
+        if (el._raf) {
+            cancelAnimationFrame(el._raf)
+            el._raf = null
+        }
+        el.classList.remove("looping")
+        el.style.height = ""
+
         if (!count) {
-            el.classList.remove("looping")
             el.innerHTML = `<div class="empty">${el.dataset.empty || "Belum ada data."}</div>`
             return
         }
-        if (count < MIN_LOOP) {
-            el.classList.remove("looping")
-            el.innerHTML = `<ul class="live-list">${html}</ul>`
-            return
+
+        // Render sekali dulu untuk mengukur tinggi 1 set konten.
+        el.innerHTML = `<div class="marquee-track" style="position:relative">${html}</div>`
+        const track = el.firstElementChild
+        const oneSet = track.scrollHeight
+        const maxH = marqueeMax()
+
+        // Bila konten muat (tidak melebihi max) → tampilkan statis, tinggi ikut konten.
+        if (oneSet <= maxH + 8) {
+            el.style.height = "auto"
+            return // tidak perlu scroll → tidak ada blank space
         }
-        // durasi: makin banyak item makin lama (kecepatan tetap ~enak dibaca)
+
+        // Konten melebihi → aktifkan loop. Duplikat konten & scroll manual.
         el.classList.add("looping")
-        const dur = Math.max(14, count * 2.6)
-        el.innerHTML = `<div class="marquee-track" style="animation-duration:${dur}s">${html}${html}</div>`
+        el.style.height = maxH + "px"
+        track.style.position = "absolute"
+        track.innerHTML = html + html
+        const half = track.scrollHeight / 2
+        const speed = 28 // px/detik
+        let offset = 0
+        let last = performance.now()
+        const step = (now) => {
+            const dt = (now - last) / 1000
+            last = now
+            offset += speed * dt
+            if (offset >= half) offset -= half // reset mulus di titik setengah
+            track.style.transform = `translateY(${-offset}px)`
+            el._raf = requestAnimationFrame(step)
+        }
+        el._raf = requestAnimationFrame(step)
     }
 
     // User: format "62857XXXX - (Nama)"
@@ -324,6 +365,8 @@
         sigGroups = "",
         sigFish = ""
     let polledOnce = false
+    let lastUsers = [],
+        lastGroups = []
 
     async function poll() {
         try {
@@ -333,6 +376,7 @@
             applyStats(d.stats || {})
 
             const users = d.users || []
+            lastUsers = users
             const uSig = JSON.stringify(users.map((u) => u.display))
             if (uSig !== sigUsers) {
                 sigUsers = uSig
@@ -342,6 +386,7 @@
             }
 
             const groups = d.groups || []
+            lastGroups = groups
             const gSig = JSON.stringify(groups.map((g) => g.name + g.type))
             if (gSig !== sigGroups) {
                 sigGroups = gSig
@@ -465,6 +510,17 @@
             renderFishing()
         }
     }
+
+    // Re-render saat ukuran layar berubah (recompute tinggi marquee).
+    let resizeT
+    window.addEventListener("resize", () => {
+        clearTimeout(resizeT)
+        resizeT = setTimeout(() => {
+            renderUsers(lastUsers, lastUsers.length)
+            renderGroups(lastGroups, lastGroups.length)
+            renderFishing()
+        }, 200)
+    })
 
     function initLive() {
         poll()

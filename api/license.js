@@ -5,11 +5,12 @@ import {
     verifyLicense,
     setStatus,
     extendLicense,
+    setExpiry,
     revokeLicense,
     deleteLicense,
     isOnline
 } from "../lib/license.js"
-import { getConfigEntry, resetPin } from "../lib/config.js"
+import { getConfigEntry, resetPin, setPin, initPin } from "../lib/config.js"
 import { cors, json, getBody, isAdmin } from "../lib/util.js"
 
 // Aksi via ?action= :
@@ -47,8 +48,12 @@ export default async function handler(req, res) {
     if (!isAdmin(req)) return json(res, 401, { ok: false, error: "Unauthorized" })
 
     switch (action) {
-        case "create":
-            return json(res, 200, { ok: true, license: await createLicense(body) })
+        case "create": {
+            const license = await createLicense(body)
+            // Buat/atur PIN untuk user page (pakai body.pin bila diisi).
+            const pin = await initPin(license.key, body.pin, license)
+            return json(res, 200, { ok: true, license, pin })
+        }
         case "list": {
             const items = (await listLicenses()).map((l) => ({ ...l, online: isOnline(l) }))
             return json(res, 200, { ok: true, total: items.length, items })
@@ -62,6 +67,16 @@ export default async function handler(req, res) {
             return json(res, 200, { ok: true, license: await setStatus(body.key, body.status) })
         case "extend":
             return json(res, 200, { ok: true, license: await extendLicense(body.key, body.days) })
+        case "setexpiry": {
+            // Atur masa aktif bebas: expiresAt = sekarang + body.days.
+            const license = await setExpiry(body.key, body.days)
+            return json(res, 200, { ok: !!license, license })
+        }
+        case "setpin": {
+            // Atur PIN user page ke nilai spesifik (kosong = acak).
+            const pin = await setPin(body.key, body.pin)
+            return json(res, 200, { ok: !!pin, pin })
+        }
         case "revoke":
             return json(res, 200, { ok: true, license: await revokeLicense(body.key) })
         case "delete":
