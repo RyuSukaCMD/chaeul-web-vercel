@@ -777,7 +777,6 @@ img {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
-    animation: slideIn 0.5s var(--ease);
     font-size: 0.86rem;
 }
 .fish-item .fi-dot {

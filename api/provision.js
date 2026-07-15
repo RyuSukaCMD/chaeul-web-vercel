@@ -25,7 +25,8 @@ export default async function handler(req, res) {
                 plan: o.plan,
                 groupLink: o.groupLink,
                 contact: o.contact,
-                maxMembers: o.plan === "private" ? 3 : null
+                maxMembers:
+                    o.plan === "private" ? Number(o.maxMembers) || 3 : (o.maxMembers ?? null)
             }))
         return json(res, 200, { ok: true, jobs })
     }
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
                 ownerNumber: body.ownerNumber || order.contact || "",
                 groupJid: body.groupJid || null, // group lock otomatis
                 groupName: body.groupName || null,
+                maxMembers: order.plan === "private" ? Number(order.maxMembers) || 3 : null,
                 note: `Auto-provision order ${order.id}`
             })
         }
@@ -100,11 +102,24 @@ export default async function handler(req, res) {
         for (const l of licenses) {
             if (l.status === "active" && l.expiresAt) {
                 const left = l.expiresAt - Date.now()
-                if (left > 0 && left < 3 * 86400000 && !l.expNotified) {
+                // Notif otomatis saat sisa ≤ 3 hari (sekali saja per lisensi).
+                if (left > 0 && left <= 3 * 86400000 && !l.expNotified) {
+                    const days = Math.ceil(left / 86400000)
+                    const tgl = new Date(l.expiresAt).toLocaleDateString("id-ID", {
+                        day: "numeric",
+                        month: "long",
+                        year: "numeric"
+                    })
                     notifs.push({
                         type: "expiring",
-                        text: `⏰ *Lisensi Hampir Habis!*\n${l.key} (${l.plan})\nSisa: ${Math.ceil(left / 86400000)} hari`,
-                        key: l.key
+                        // Dikirim ke OWNER + langsung ke GRUP (bila lisensi terkunci grup).
+                        text:
+                            `⏰ *Masa Aktif Bot Hampir Habis!*\n\n` +
+                            `Sisa *${days} hari* lagi (s/d ${tgl}).\n` +
+                            `Segera perpanjang agar bot tetap aktif di grup ini. 🙏`,
+                        ownerText: `⏰ *Lisensi Hampir Habis!*\n${l.key} (${l.plan})\nSisa: ${days} hari (s/d ${tgl})${l.groupName ? `\nGrup: ${l.groupName}` : ""}`,
+                        key: l.key,
+                        groupJid: l.groupJid || null
                     })
                 }
             }

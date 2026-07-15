@@ -581,6 +581,11 @@
                 <input id="edGroup" placeholder="1203xxxx@g.us" value="${esc(lic.groupJid || "")}" />
                 <div class="hint">Kunci lisensi ke grup ini. Kosongkan = tidak dikunci. Bot mengisi otomatis saat join grup.</div>
             </div>
+            <div class="field">
+                <label>👥 Maks Anggota Grup ${lic.plan === "private" ? "" : "(khusus private)"}</label>
+                <input id="edMax" type="number" min="0" placeholder="3" value="${lic.maxMembers ?? ""}" />
+                <div class="hint">Batas anggota untuk grup private. Kosong/0 = tanpa batas. Bot menolak join bila melebihi.</div>
+            </div>
             <div style="display:flex;gap:10px;margin-top:6px">
                 <button class="btn btn-ghost btn-sm" id="edRandPin" type="button" style="flex:1;justify-content:center">🎲 Acak PIN</button>
                 <button class="btn btn-primary" id="edSave" type="button" style="flex:2;justify-content:center">💾 Simpan</button>
@@ -616,6 +621,12 @@
                     method: "POST",
                     headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
                     body: JSON.stringify({ key, groupJid: $("#edGroup").value.trim() })
+                })
+                // Maks anggota grup.
+                await fetch("/api/license?action=setmax", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
+                    body: JSON.stringify({ key, maxMembers: $("#edMax").value.trim() })
                 })
                 closeModal()
                 toast("✅ Lisensi diperbarui")
@@ -757,6 +768,11 @@
                 <div class="hint">Dipakai user untuk login ke Panel Pengguna.</div>
             </div>
             <div class="field">
+                <label>Maks Anggota Grup (private)</label>
+                <input id="nlMax" type="number" min="0" value="3" />
+                <div class="hint">Batas anggota grup private. Kosong/0 = tanpa batas.</div>
+            </div>
+            <div class="field">
                 <label>Grup JID (opsional, kunci ke grup)</label>
                 <input id="nlGroup" placeholder="1203xxxx@g.us" />
             </div>
@@ -768,6 +784,7 @@
                 ownerNumber: $("#nlOwner").value.trim(),
                 days: parseInt($("#nlDays").value, 10) || 30,
                 pin: $("#nlPin").value.trim() || undefined,
+                maxMembers: parseInt($("#nlMax").value, 10) || undefined,
                 groupJid: $("#nlGroup").value.trim() || null
             }
             const r = await fetch("/api/license?action=create", {

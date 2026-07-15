@@ -7,6 +7,7 @@ import {
     extendLicense,
     setExpiry,
     setGroupLock,
+    setMaxMembers,
     revokeLicense,
     deleteLicense,
     isOnline
@@ -90,6 +91,11 @@ export default async function handler(req, res) {
         case "setgroup": {
             // Group lock: kunci lisensi ke grup (jid). Kosong = lepas.
             const license = await setGroupLock(body.key, body.groupJid, body.groupName)
+            return json(res, 200, { ok: !!license, license })
+        }
+        case "setmax": {
+            // Set maksimal anggota grup (khusus private).
+            const license = await setMaxMembers(body.key, body.maxMembers)
             return json(res, 200, { ok: !!license, license })
         }
         case "revoke":

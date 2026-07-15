@@ -307,28 +307,34 @@
             return // tidak perlu scroll → tidak ada blank space
         }
 
-        // Konten melebihi → aktifkan loop. Duplikat konten & scroll manual.
+        // Konten melebihi → aktifkan loop bergulir MULUS ke bawah (Atas → Bawah).
         el.classList.add("looping")
         el.style.height = maxH + "px"
         track.style.position = "absolute"
-        track.innerHTML = html + html
+        track.innerHTML = html + html // duplikat → loop tak terlihat sambungannya
         const half = track.scrollHeight / 2
         const speed = 28 // px/detik
-        let offset = 0
+
+        // Pertahankan posisi scroll antar re-render (refresh mulus, tanpa "loncat").
+        // offset berjalan dari 0..half; tampilan digeser -(half - offset) sehingga
+        // konten mengalir dari ATAS ke BAWAH.
+        let offset = Number(el._offset) || 0
+        if (offset > half) offset = 0
         let last = performance.now()
         const step = (now) => {
-            // Hemat baterai/CPU: berhenti animasi bila tab tersembunyi atau
-            // bagian live tidak terlihat di layar (mencegah web terasa berat).
+            // Hemat CPU/baterai: pause bila tab tersembunyi / section tak terlihat.
             if (!liveVisible || document.hidden) {
                 last = now
                 el._raf = requestAnimationFrame(step)
                 return
             }
-            const dt = Math.min((now - last) / 1000, 0.05) // clamp (hindari lompatan)
+            const dt = Math.min((now - last) / 1000, 0.05)
             last = now
             offset += speed * dt
-            if (offset >= half) offset -= half // reset mulus di titik setengah
-            track.style.transform = `translateY(${-offset}px)`
+            if (offset >= half) offset -= half // wrap mulus di titik setengah
+            el._offset = offset
+            // Geser ke bawah: mulai dari -half (set kedua di atas) menuju 0.
+            track.style.transform = `translateY(${offset - half}px)`
             el._raf = requestAnimationFrame(step)
         }
         el._raf = requestAnimationFrame(step)
@@ -570,11 +576,11 @@
 
     function initLive() {
         poll()
-        // Poll data nyata tiap 45 detik — dan HANYA saat tab aktif (hemat kuota &
-        // mencegah web terasa berat karena request terus-menerus di background).
+        // Poll tiap 15 detik & HANYA saat tab aktif. DOM cuma di-update kalau data
+        // benar-benar berubah (cek signature) → terasa real-time tanpa jank/berat.
         setInterval(() => {
             if (!document.hidden) poll()
-        }, 45000)
+        }, 15000)
         syncFishFeed()
         // Saat tab kembali aktif, segarkan sekali.
         document.addEventListener("visibilitychange", () => {
