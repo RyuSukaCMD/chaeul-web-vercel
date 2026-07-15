@@ -26,16 +26,58 @@
                     <span class="brand-mark">✦</span>
                     <span class="brand-name">Chaeul Admin</span>
                 </div>
-                <p class="modal-sub" style="text-align: center">Masukkan token admin untuk masuk.</p>
+                <p class="modal-sub" style="text-align: center">
+                    Login dengan username & kunci privat (.pem).
+                </p>
                 <div class="field">
-                    <label>Admin Token</label>
-                    <input id="tokenInput" type="password" placeholder="••••••••" autocomplete="off" />
-                    <div class="err" id="loginErr">Token salah.</div>
+                    <label>Username</label>
+                    <input id="userInput" type="text" placeholder="username" autocomplete="off" />
                 </div>
-                <button class="btn btn-primary" id="loginBtn" style="width: 100%; justify-content: center">
+                <div class="field">
+                    <label>Kunci Privat (.pem)</label>
+                    <input id="pemInput" type="file" accept=".pem,.key,.txt" />
+                    <div class="hint" id="pemName">Belum ada file dipilih.</div>
+                    <div class="err" id="loginErr">Login gagal.</div>
+                </div>
+                <button
+                    class="btn btn-primary"
+                    id="loginBtn"
+                    style="width: 100%; justify-content: center"
+                >
                     Masuk Dashboard
                 </button>
-                <p style="text-align: center; margin-top: 16px; font-size: 0.82rem; color: var(--faint)">
+
+                <div id="bootstrapBox" style="display: none; margin-top: 18px">
+                    <div style="border-top: 1px solid var(--border); padding-top: 16px">
+                        <p class="modal-sub" style="text-align: center; color: var(--green)">
+                            🚀 Belum ada admin. Buat OWNER pertama:
+                        </p>
+                        <div class="field">
+                            <label>Nick (nama file .pem)</label>
+                            <input id="bsNick" type="text" placeholder="mis. Ryu" />
+                        </div>
+                        <div class="field">
+                            <label>Username</label>
+                            <input id="bsUser" type="text" placeholder="mis. ryu" />
+                        </div>
+                        <button
+                            class="btn btn-ghost"
+                            id="bsBtn"
+                            style="width: 100%; justify-content: center"
+                        >
+                            Generate Key Owner (.pem)
+                        </button>
+                    </div>
+                </div>
+
+                <p
+                    style="
+                        text-align: center;
+                        margin-top: 16px;
+                        font-size: 0.82rem;
+                        color: var(--faint);
+                    "
+                >
                     <a href="/" style="color: var(--brand)">← Kembali ke situs</a>
                 </p>
             </div>
@@ -58,8 +100,13 @@
                     <button class="side-link" data-tab="coupons">
                         <span class="ic">🎟️</span> Kupon
                     </button>
+                    <button class="side-link owner-only" data-tab="admins">
+                        <span class="ic">🛡️</span> Admin
+                    </button>
                 </nav>
-                <button class="side-link logout" id="logoutBtn"><span class="ic">🚪</span> Keluar</button>
+                <button class="side-link logout" id="logoutBtn">
+                    <span class="ic">🚪</span> Keluar
+                </button>
             </aside>
 
             <main class="main">
@@ -103,7 +150,9 @@
                 <!-- Licenses -->
                 <section class="tab" id="tab-licenses" style="display: none">
                     <div class="panel-actions">
-                        <button class="btn btn-primary btn-sm" id="newLicBtn">＋ Buat Lisensi</button>
+                        <button class="btn btn-primary btn-sm" id="newLicBtn">
+                            ＋ Buat Lisensi
+                        </button>
                     </div>
                     <div class="table-wrap">
                         <table class="tbl" id="licTable">
@@ -126,7 +175,9 @@
                 <!-- Coupons -->
                 <section class="tab" id="tab-coupons" style="display: none">
                     <div class="panel-actions">
-                        <button class="btn btn-primary btn-sm" id="newCouponBtn">＋ Buat Kupon</button>
+                        <button class="btn btn-primary btn-sm" id="newCouponBtn">
+                            ＋ Buat Kupon
+                        </button>
                     </div>
                     <div class="table-wrap">
                         <table class="tbl" id="cpnTable">
@@ -160,6 +211,32 @@
                                 </tr>
                             </thead>
                             <tbody id="ordBody"></tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Admins (owner only) -->
+                <section class="tab" id="tab-admins" style="display: none">
+                    <div style="margin-bottom: 18px">
+                        <button class="btn btn-primary btn-sm" id="newAdminBtn">
+                            🔑 Generate Key Baru
+                        </button>
+                        <span class="hint" style="margin-left: 10px"
+                            >Hanya owner. Nama file .pem = nick.</span
+                        >
+                    </div>
+                    <div class="table-wrap">
+                        <table class="tbl" id="admTable">
+                            <thead>
+                                <tr>
+                                    <th>Nick</th>
+                                    <th>Username</th>
+                                    <th>Role</th>
+                                    <th>Dibuat</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admBody"></tbody>
                         </table>
                     </div>
                 </section>

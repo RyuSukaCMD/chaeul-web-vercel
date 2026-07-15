@@ -2,6 +2,11 @@
     const $ = (s, r = document) => r.querySelector(s)
     const $$ = (s, r = document) => [...r.querySelectorAll(s)]
     const rp = (n) => "Rp " + Number(n || 0).toLocaleString("id-ID")
+    const esc = (s) =>
+        String(s || "").replace(
+            /[&<>"']/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]
+        )
     let TOKEN = sessionStorage.getItem("chaeul_admin") || ""
     let DATA = { stats: {}, licenses: [], orders: [] }
 
@@ -16,41 +21,146 @@
         return r.json()
     }
 
-    // ─── Login ───
-    async function tryLogin(token) {
-        const r = await fetch("/api/admin?action=auth", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ token })
-        }).then((x) => x.json())
-        return r.ok
+    let ROLE = sessionStorage.getItem("chaeul_admin_role") || "admin"
+
+    // ─── Kripto: import PKCS8 Ed25519 PEM & tanda tangani challenge ───
+    function pemToArrayBuffer(pem) {
+        const b64 = pem
+            .replace(/-----BEGIN [^-]+-----/, "")
+            .replace(/-----END [^-]+-----/, "")
+            .replace(/\s+/g, "")
+        const bin = atob(b64)
+        const buf = new Uint8Array(bin.length)
+        for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
+        return buf.buffer
     }
+    async function signChallenge(pemText, nonce) {
+        const keyData = pemToArrayBuffer(pemText)
+        const key = await crypto.subtle.importKey("pkcs8", keyData, { name: "Ed25519" }, false, [
+            "sign"
+        ])
+        const sig = await crypto.subtle.sign(
+            { name: "Ed25519" },
+            key,
+            new TextEncoder().encode(nonce)
+        )
+        return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    }
+    const readFile = (file) =>
+        new Promise((res, rej) => {
+            const fr = new FileReader()
+            fr.onload = () => res(fr.result)
+            fr.onerror = rej
+            fr.readAsText(file)
+        })
+
+    // ─── Login (username + .pem) ───
+    let pemText = ""
+    $("#pemInput")?.addEventListener("change", async (e) => {
+        const f = e.target.files[0]
+        if (!f) return
+        pemText = await readFile(f)
+        $("#pemName").textContent = "✓ " + f.name
+    })
 
     $("#loginBtn").addEventListener("click", async () => {
-        const t = $("#tokenInput").value.trim()
-        const ok = await tryLogin(t)
-        if (!ok) {
+        const username = $("#userInput").value.trim()
+        $("#loginErr").style.display = "none"
+        if (!username || !pemText) {
+            $("#loginErr").textContent = "Isi username & pilih file .pem."
             $("#loginErr").style.display = "block"
             return
         }
-        TOKEN = t
-        sessionStorage.setItem("chaeul_admin", t)
-        enterDash()
+        const btn = $("#loginBtn")
+        btn.disabled = true
+        btn.textContent = "Memverifikasi…"
+        try {
+            // 1. minta challenge
+            const ch = await fetch("/api/admin?action=challenge", { method: "POST" }).then((x) =>
+                x.json()
+            )
+            // 2. tanda tangani nonce
+            const signature = await signChallenge(pemText, ch.nonce)
+            // 3. login
+            const r = await fetch("/api/admin?action=login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ username, nonce: ch.nonce, signature })
+            }).then((x) => x.json())
+            if (!r.ok) throw new Error(r.error || "Login gagal")
+            TOKEN = r.token
+            ROLE = r.role
+            sessionStorage.setItem("chaeul_admin", TOKEN)
+            sessionStorage.setItem("chaeul_admin_role", ROLE)
+            enterDash()
+        } catch (err) {
+            $("#loginErr").textContent = "⚠️ " + (err.message || "Login gagal")
+            $("#loginErr").style.display = "block"
+        } finally {
+            btn.disabled = false
+            btn.textContent = "Masuk Dashboard"
+        }
     })
-    $("#tokenInput").addEventListener("keydown", (e) => {
-        if (e.key === "Enter") $("#loginBtn").click()
+
+    // ─── Bootstrap: tampilkan form buat OWNER pertama bila belum ada admin ───
+    ;(async () => {
+        try {
+            const ch = await fetch("/api/admin?action=challenge", { method: "POST" }).then((x) =>
+                x.json()
+            )
+            if (ch.bootstrap) $("#bootstrapBox").style.display = "block"
+        } catch {}
+    })()
+    $("#bsBtn")?.addEventListener("click", async () => {
+        const nick = $("#bsNick").value.trim()
+        const username = $("#bsUser").value.trim() || nick
+        if (!nick || !username) return toast("⚠️ Isi nick & username")
+        const r = await fetch("/api/admin?action=genkey", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ nick, username, role: "owner" })
+        }).then((x) => x.json())
+        if (!r.ok) return toast("⚠️ " + (r.error || "Gagal"))
+        downloadPem(r.privatePem, r.filename)
+        toast("🔑 Key owner dibuat! File .pem terunduh. Login pakai file itu.")
+        $("#userInput").value = username
     })
+
+    function downloadPem(pem, filename) {
+        const blob = new Blob([pem], { type: "application/x-pem-file" })
+        const a = document.createElement("a")
+        a.href = URL.createObjectURL(blob)
+        a.download = filename || "key.pem"
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => {
+            URL.revokeObjectURL(a.href)
+            a.remove()
+        }, 1000)
+    }
 
     function enterDash() {
         $("#loginScreen").style.display = "none"
         $("#dash").style.display = "grid"
+        // Owner-only UI (mis. tab Admin/generate key)
+        document.body.classList.toggle("is-owner", ROLE === "owner")
         loadAll()
         clearInterval(window.__poll)
-        window.__poll = setInterval(loadAll, 8000)
+        // Refresh ringan tiap 20 detik & HANYA saat tab aktif (tidak berat).
+        window.__poll = setInterval(() => {
+            if (!document.hidden) loadAll()
+        }, 20000)
     }
 
-    $("#logoutBtn").addEventListener("click", () => {
+    $("#logoutBtn").addEventListener("click", async () => {
+        try {
+            await fetch("/api/admin?action=logout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "x-admin-token": TOKEN }
+            })
+        } catch {}
         sessionStorage.removeItem("chaeul_admin")
+        sessionStorage.removeItem("chaeul_admin_role")
         location.reload()
     })
 
@@ -59,7 +169,8 @@
         overview: ["Overview", "Ringkasan real-time bot & lisensi."],
         licenses: ["Lisensi", "Kelola semua lisensi bot."],
         orders: ["Pesanan", "Pesanan sewa masuk dari website."],
-        coupons: ["Kupon", "Kelola kode diskon."]
+        coupons: ["Kupon", "Kelola kode diskon."],
+        admins: ["Admin", "Kelola akun admin & generate key .pem (owner)."]
     }
     $$(".side-link[data-tab]").forEach((b) =>
         b.addEventListener("click", () => {
@@ -70,6 +181,7 @@
             $("#tab-" + tab).style.display = "block"
             $("#tabTitle").textContent = TAB_INFO[tab][0]
             $("#tabSub").textContent = TAB_INFO[tab][1]
+            if (tab === "admins") loadAdmins()
         })
     )
     $("#refreshBtn").addEventListener("click", loadAll)
@@ -92,6 +204,82 @@
         renderOrders(r.orders)
         loadCoupons()
     }
+
+    // ─── Admins (owner only) ───
+    async function loadAdmins() {
+        const r = await api("/api/admin?action=admins", "POST", {})
+        if (!r.ok) return
+        renderAdmins(r.items || [], r.me || {})
+    }
+    function renderAdmins(items, me) {
+        const body = $("#admBody")
+        if (!items.length) {
+            body.innerHTML = `<tr><td colspan="5" class="empty-tbl">Belum ada admin.</td></tr>`
+            return
+        }
+        body.innerHTML = items
+            .map((a) => {
+                const isSelf = a.username === me.username
+                const canDel = me.role === "owner" && !isSelf
+                return `<tr>
+                <td>${esc(a.nick)}</td>
+                <td class="mono">${esc(a.username)}</td>
+                <td><span class="st ${a.role === "owner" ? "active" : "pending"}">${a.role}</span></td>
+                <td style="font-size:.82rem;color:var(--muted)">${a.createdAt ? fmtDate(a.createdAt) : "-"}</td>
+                <td>${canDel ? `<button class="mini-btn danger" data-adm-del="${esc(a.username)}">Hapus</button>` : isSelf ? '<span style="color:var(--faint);font-size:.78rem">kamu</span>' : "-"}</td>
+            </tr>`
+            })
+            .join("")
+        $$("[data-adm-del]").forEach((b) =>
+            b.addEventListener("click", async () => {
+                if (!confirm(`Hapus admin ${b.dataset.admDel}?`)) return
+                const r = await api("/api/admin?action=deladmin", "POST", {
+                    username: b.dataset.admDel
+                })
+                if (r.ok) {
+                    toast("🗑️ Admin dihapus")
+                    loadAdmins()
+                } else toast("⚠️ " + (r.error || "Gagal"))
+            })
+        )
+    }
+    $("#newAdminBtn")?.addEventListener("click", () => {
+        $("#modalBody").innerHTML = `
+            <h3>Generate Key Baru</h3>
+            <p class="modal-sub">Buat akun admin/owner. File .pem akan terunduh (nama = nick).</p>
+            <div class="field">
+                <label>Nick (nama file .pem)</label>
+                <input id="gkNick" placeholder="mis. Staff1" />
+            </div>
+            <div class="field">
+                <label>Username (untuk login)</label>
+                <input id="gkUser" placeholder="mis. staff1" />
+            </div>
+            <div class="field">
+                <label>Role</label>
+                <select id="gkRole">
+                    <option value="admin">Admin</option>
+                    <option value="owner">Owner (bisa generate key)</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" id="gkSubmit" style="width:100%;justify-content:center">Generate & Unduh .pem</button>`
+        openModal()
+        $("#gkSubmit").addEventListener("click", async () => {
+            const nick = $("#gkNick").value.trim()
+            const username = $("#gkUser").value.trim() || nick
+            if (!nick || !username) return toast("⚠️ Isi nick & username")
+            const r = await api("/api/admin?action=genkey", "POST", {
+                nick,
+                username,
+                role: $("#gkRole").value
+            })
+            if (!r.ok) return toast("⚠️ " + (r.error || "Gagal"))
+            downloadPem(r.privatePem, r.filename)
+            closeModal()
+            toast("🔑 Key dibuat & .pem terunduh! Simpan baik-baik.")
+            loadAdmins()
+        })
+    })
 
     // ─── Coupons ───
     async function loadCoupons() {
@@ -384,6 +572,11 @@
                 <label>PIN User Page (4–8 digit)</label>
                 <input id="edPin" inputmode="numeric" maxlength="8" value="${curPin}" />
             </div>
+            <div class="field">
+                <label>🔒 Group Lock (JID grup)</label>
+                <input id="edGroup" placeholder="1203xxxx@g.us" value="${esc(lic.groupJid || "")}" />
+                <div class="hint">Kunci lisensi ke grup ini. Kosongkan = tidak dikunci. Bot mengisi otomatis saat join grup.</div>
+            </div>
             <div style="display:flex;gap:10px;margin-top:6px">
                 <button class="btn btn-ghost btn-sm" id="edRandPin" type="button" style="flex:1;justify-content:center">🎲 Acak PIN</button>
                 <button class="btn btn-primary" id="edSave" type="button" style="flex:2;justify-content:center">💾 Simpan</button>
@@ -414,6 +607,12 @@
                         body: JSON.stringify({ key, pin })
                     })
                 }
+                // Group lock (selalu kirim — memungkinkan clear dgn kosong).
+                await fetch("/api/license?action=setgroup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
+                    body: JSON.stringify({ key, groupJid: $("#edGroup").value.trim() })
+                })
                 closeModal()
                 toast("✅ Lisensi diperbarui")
                 loadAll()
@@ -625,11 +824,22 @@
         return Math.floor(s / 86400) + " hari lalu"
     }
 
-    // Auto-login bila token tersimpan
+    // Auto-login bila sesi tersimpan (validasi ke server).
     if (TOKEN) {
-        tryLogin(TOKEN).then((ok) => {
-            if (ok) enterDash()
-            else sessionStorage.removeItem("chaeul_admin")
+        fetch("/api/admin?action=session", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-admin-token": TOKEN }
         })
+            .then((x) => x.json())
+            .then((s) => {
+                if (s.ok) {
+                    ROLE = s.role || ROLE
+                    enterDash()
+                } else {
+                    sessionStorage.removeItem("chaeul_admin")
+                    sessionStorage.removeItem("chaeul_admin_role")
+                }
+            })
+            .catch(() => {})
     }
 })()

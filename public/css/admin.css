@@ -424,3 +424,14 @@
         padding: 20px 16px 50px;
     }
 }
+
+/* Owner-only elemen: sembunyikan kecuali body.is-owner */
+.owner-only {
+    display: none !important;
+}
+body.is-owner .owner-only {
+    display: flex !important;
+}
+body.is-owner .side-link.owner-only {
+    display: flex !important;
+}

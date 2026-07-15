@@ -38,19 +38,50 @@
         a.addEventListener("click", () => links.classList.remove("open"))
     )
 
-    // ─── Reveal on scroll ───
-    const io = new IntersectionObserver(
-        (entries) => {
-            entries.forEach((e) => {
-                if (e.isIntersecting) {
-                    e.target.classList.add("visible")
-                    io.unobserve(e.target)
-                }
-            })
-        },
-        { threshold: 0.12 }
-    )
-    $$(".reveal").forEach((el) => io.observe(el))
+    // ─── Reveal on scroll (fail-safe) ───
+    const supportsIO = "IntersectionObserver" in window
+    const io = supportsIO
+        ? new IntersectionObserver(
+              (entries) => {
+                  entries.forEach((e) => {
+                      if (e.isIntersecting) {
+                          e.target.classList.add("visible")
+                          io.unobserve(e.target)
+                      }
+                  })
+              },
+              { threshold: 0.08, rootMargin: "0px 0px -5% 0px" }
+          )
+        : null
+    // Amati SEMUA .reveal yang belum tampil. Dipanggil ulang tiap kali ada
+    // konten dinamis baru (fitur/steps/pricing/faq) — kalau tidak, elemen baru
+    // tetap opacity:0 → tampil sebagai BLANK SPACE.
+    function observeReveals() {
+        $$(".reveal:not(.visible)").forEach((el) => {
+            if (io) io.observe(el)
+            else el.classList.add("visible")
+        })
+    }
+    // Jaring pengaman: apa pun yang terjadi (IO gagal/ke-skip), setelah render
+    // pastikan semua elemen akhirnya terlihat sehingga tidak ada blank space.
+    function revealSafetyNet() {
+        setTimeout(
+            () => $$(".reveal:not(.visible)").forEach((el) => el.classList.add("visible")),
+            800
+        )
+    }
+    observeReveals()
+
+    // ─── Live section visibility (hemat CPU: marquee & poll berhenti bila offscreen/hidden) ───
+    let liveVisible = true
+    const liveSection = $("#live")
+    if (supportsIO && liveSection) {
+        const lio = new IntersectionObserver(
+            (ents) => ents.forEach((e) => (liveVisible = e.isIntersecting)),
+            { threshold: 0 }
+        )
+        lio.observe(liveSection)
+    }
 
     // ─── Render highlights strip ───
     if (D.highlights && $("#highlightStrip")) {
@@ -65,8 +96,9 @@
             .join("")
     }
 
-    // ─── Render features ───
+    // ─── Render features (TOP 5) ───
     $("#featureGrid").innerHTML = D.features
+        .slice(0, 5)
         .map(
             (f) => `
         <div class="feature-card reveal">
@@ -77,6 +109,7 @@
         </div>`
         )
         .join("")
+    observeReveals()
 
     // ─── Render FAQ ───
     if (D.faq && $("#faqList")) {
@@ -104,6 +137,7 @@
                 }
             })
         })
+        observeReveals()
     }
 
     // spotlight hover on feature cards
@@ -126,6 +160,7 @@
         </div>`
         )
         .join("")
+    observeReveals()
 
     // ─── Render pricing ───
     function renderPricing() {
@@ -161,17 +196,21 @@
                 <ul class="price-feats">
                     ${feats[p.id].map((f) => `<li><span class="check">✓</span> ${f}</li>`).join("")}
                 </ul>
-                <button class="btn btn-primary" data-order="${p.id}">Sewa ${p.name}</button>
+                <div class="price-actions">
+                    <button class="btn btn-primary" data-order="${p.id}" data-type="rent">🤖 Sewa Bot</button>
+                    <button class="btn btn-ghost" data-order="${p.id}" data-type="license">🔑 Beli Lisensi</button>
+                </div>
             </div>`
             })
             .join("")
         // re-observe new reveals + wire order buttons
-        $$("#priceGrid .reveal").forEach((el) => io.observe(el))
+        observeReveals()
         $$("[data-order]").forEach((b) =>
-            b.addEventListener("click", () => openOrder(b.dataset.order))
+            b.addEventListener("click", () => openOrder(b.dataset.order, b.dataset.type))
         )
     }
     renderPricing()
+    revealSafetyNet()
 
     // ─── Animated chat mockup ───
     const chatBody = $("#chatBody")
@@ -278,7 +317,14 @@
         let offset = 0
         let last = performance.now()
         const step = (now) => {
-            const dt = (now - last) / 1000
+            // Hemat baterai/CPU: berhenti animasi bila tab tersembunyi atau
+            // bagian live tidak terlihat di layar (mencegah web terasa berat).
+            if (!liveVisible || document.hidden) {
+                last = now
+                el._raf = requestAnimationFrame(step)
+                return
+            }
+            const dt = Math.min((now - last) / 1000, 0.05) // clamp (hindari lompatan)
             last = now
             offset += speed * dt
             if (offset >= half) offset -= half // reset mulus di titik setengah
@@ -524,8 +570,16 @@
 
     function initLive() {
         poll()
-        setInterval(poll, 30000) // poll data nyata tiap 30 detik (marquee ga perlu sering)
+        // Poll data nyata tiap 45 detik — dan HANYA saat tab aktif (hemat kuota &
+        // mencegah web terasa berat karena request terus-menerus di background).
+        setInterval(() => {
+            if (!document.hidden) poll()
+        }, 45000)
         syncFishFeed()
+        // Saat tab kembali aktif, segarkan sekali.
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) poll()
+        })
     }
     initLive()
 
@@ -546,12 +600,17 @@
     $$("[data-close]").forEach((el) => el.addEventListener("click", closeModal))
     document.addEventListener("keydown", (e) => e.key === "Escape" && closeModal())
 
-    function openOrder(planId) {
+    function openOrder(planId, orderType = "rent") {
         const p = PLANS[planId]
         if (!p) return
+        const isRent = orderType !== "license"
         modalBody.innerHTML = `
-            <h3>Sewa ${p.name}</h3>
-            <p class="modal-sub">Lengkapi data grup untuk melanjutkan.</p>
+            <h3>${isRent ? "🤖 Sewa Bot" : "🔑 Beli Lisensi"} · ${p.name}</h3>
+            <p class="modal-sub">${
+                isRent
+                    ? "Bot kami akan otomatis join & aktif di grupmu."
+                    : "Dapatkan license key untuk bot milikmu sendiri."
+            }</p>
             <div class="summary">
                 <div>
                     <div class="s-name">${p.name}</div>
@@ -561,16 +620,24 @@
                 </div>
                 <div class="s-price">${rp(p.price)}<small style="font-size:.7rem;color:var(--faint)">/bln</small></div>
             </div>
-            <div class="field">
+            ${
+                isRent
+                    ? `<div class="field">
                 <label>Link Grup WhatsApp</label>
                 <input id="fGroup" type="url" placeholder="https://chat.whatsapp.com/..." autocomplete="off" />
                 <div class="hint">${
                     p.id === "private"
-                        ? "Grup akan dicek: maksimal 3 anggota."
-                        : "Grup publik, anggota bebas."
+                        ? "Bot join & cek grup (maks 3 anggota), lalu auto-register + group lock."
+                        : "Bot join grup publik & auto-register."
                 }</div>
                 <div class="err" id="errGroup">Link grup tidak valid.</div>
-            </div>
+            </div>`
+                    : `<div class="field">
+                <div class="hint" style="padding:10px 12px;background:var(--surface);border:1px solid var(--border);border-radius:12px">
+                    🔑 Kamu akan menerima <b>license key</b> untuk dipakai di bot milikmu sendiri. Tidak perlu link grup.
+                </div>
+            </div>`
+            }
             <div class="field">
                 <label>Nomor WhatsApp kamu (untuk konfirmasi)</label>
                 <input id="fContact" type="text" placeholder="628xxxxxxxxxx" autocomplete="off" />
@@ -647,19 +714,22 @@
         })
 
         $("#submitOrder").addEventListener("click", () =>
-            submitOrder(planId, selMonths, couponCode)
+            submitOrder(planId, selMonths, couponCode, orderType)
         )
     }
 
-    async function submitOrder(planId, months = 1, coupon = null) {
-        const groupLink = $("#fGroup").value.trim()
+    async function submitOrder(planId, months = 1, coupon = null, orderType = "rent") {
+        const isRent = orderType !== "license"
+        const groupLink = isRent ? $("#fGroup").value.trim() : ""
         const contact = $("#fContact").value.trim()
-        const err = $("#errGroup")
-        if (!/chat\.whatsapp\.com\//i.test(groupLink)) {
-            err.style.display = "block"
-            return
+        if (isRent) {
+            const err = $("#errGroup")
+            if (!/chat\.whatsapp\.com\//i.test(groupLink)) {
+                err.style.display = "block"
+                return
+            }
+            err.style.display = "none"
         }
-        err.style.display = "none"
         const btn = $("#submitOrder")
         btn.disabled = true
         btn.textContent = "Memproses..."
@@ -669,7 +739,14 @@
             data = await fetch("/api/public?action=order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ plan: planId, groupLink, contact, months, coupon })
+                body: JSON.stringify({
+                    plan: planId,
+                    type: orderType,
+                    groupLink,
+                    contact,
+                    months,
+                    coupon
+                })
             }).then((r) => r.json())
         } catch {
             data = { ok: false, error: "Server tidak dapat dihubungi." }

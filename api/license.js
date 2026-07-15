@@ -6,12 +6,22 @@ import {
     setStatus,
     extendLicense,
     setExpiry,
+    setGroupLock,
     revokeLicense,
     deleteLicense,
     isOnline
 } from "../lib/license.js"
 import { getConfigEntry, resetPin, setPin, initPin } from "../lib/config.js"
+import { checkSession } from "../lib/adminauth.js"
 import { cors, json, getBody, isAdmin } from "../lib/util.js"
+
+// Admin valid bila sesi Ed25519 valid ATAU legacy ADMIN_TOKEN cocok.
+async function adminOK(req, body) {
+    const tok = req.headers["x-admin-token"] || req.query?.token || body?.token || ""
+    const s = await checkSession(tok)
+    if (s.ok) return true
+    return isAdmin(req)
+}
 
 // Aksi via ?action= :
 //   verify (publik/bot) | create|list|get|status|extend|revoke|delete (admin)
@@ -45,7 +55,7 @@ export default async function handler(req, res) {
     }
 
     // ── Aksi admin (butuh token) ──
-    if (!isAdmin(req)) return json(res, 401, { ok: false, error: "Unauthorized" })
+    if (!(await adminOK(req, body))) return json(res, 401, { ok: false, error: "Unauthorized" })
 
     switch (action) {
         case "create": {
@@ -76,6 +86,11 @@ export default async function handler(req, res) {
             // Atur PIN user page ke nilai spesifik (kosong = acak).
             const pin = await setPin(body.key, body.pin)
             return json(res, 200, { ok: !!pin, pin })
+        }
+        case "setgroup": {
+            // Group lock: kunci lisensi ke grup (jid). Kosong = lepas.
+            const license = await setGroupLock(body.key, body.groupJid, body.groupName)
+            return json(res, 200, { ok: !!license, license })
         }
         case "revoke":
             return json(res, 200, { ok: true, license: await revokeLicense(body.key) })

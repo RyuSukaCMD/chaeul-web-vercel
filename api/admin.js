@@ -1,21 +1,111 @@
 import { read, update } from "../lib/store.js"
 import { listLicenses, isOnline, createLicense } from "../lib/license.js"
+import {
+    countAdmins,
+    createAdmin,
+    deleteAdmin,
+    listAdmins,
+    issueChallenge,
+    login,
+    logout,
+    checkSession
+} from "../lib/adminauth.js"
 import { cors, json, getBody, isAdmin, adminToken } from "../lib/util.js"
 
+// Ambil token sesi dari header/query/body.
+function sessTok(req, body) {
+    return req.headers["x-admin-token"] || req.query?.token || body?.token || ""
+}
+
+// Guard: valid bila (a) sesi Ed25519 valid, ATAU (b) legacy ADMIN_TOKEN cocok.
+async function guard(req, body) {
+    const tok = sessTok(req, body)
+    const s = await checkSession(tok)
+    if (s.ok) return s
+    if (isAdmin(req))
+        return { ok: true, role: "owner", nick: "root", username: "root", legacy: true }
+    return { ok: false }
+}
+
 // Endpoint admin gabungan. Aksi via ?action= :
+//   challenge | login | logout | session | admins | genkey | deladmin |
 //   auth | overview | order | coupon
 export default async function handler(req, res) {
     if (cors(req, res)) return
     const body = getBody(req)
     const action = req.query?.action
 
-    // AUTH — cek token (tanpa guard, ini yang menentukan valid/tidak)
+    // ── AUTH via keypair (.pem) ──
+    if (action === "challenge") {
+        const nonce = await issueChallenge()
+        // Bootstrap: apakah belum ada admin sama sekali?
+        const empty = (await countAdmins()) === 0
+        return json(res, 200, { ok: true, nonce, bootstrap: empty })
+    }
+    if (action === "login") {
+        const r = await login({
+            username: body.username,
+            nonce: body.nonce,
+            signature: body.signature
+        })
+        return json(res, r.ok ? 200 : 401, r)
+    }
+    if (action === "logout") {
+        await logout(sessTok(req, body))
+        return json(res, 200, { ok: true })
+    }
+    if (action === "session") {
+        const s = await guard(req, body)
+        return json(res, 200, s)
+    }
+
+    // ── GENERATE KEY (.pem) ──
+    // Bootstrap: bila belum ada admin, siapa pun boleh bikin OWNER pertama (decoy).
+    // Setelah ada owner, HANYA owner yang boleh generate key baru.
+    if (action === "genkey") {
+        const empty = (await countAdmins()) === 0
+        let role = body.role === "owner" ? "owner" : "admin"
+        if (empty) {
+            role = "owner" // owner pertama
+        } else {
+            const s = await guard(req, body)
+            if (!s.ok) return json(res, 401, { ok: false, error: "Unauthorized" })
+            if (s.role !== "owner")
+                return json(res, 403, { ok: false, error: "Hanya owner yang bisa generate key." })
+        }
+        try {
+            const { admin, privatePem, filename } = await createAdmin({
+                nick: body.nick,
+                username: body.username,
+                role
+            })
+            return json(res, 200, {
+                ok: true,
+                admin: { nick: admin.nick, username: admin.username, role: admin.role },
+                privatePem,
+                filename
+            })
+        } catch (e) {
+            return json(res, 400, { ok: false, error: e.message })
+        }
+    }
+
+    // Legacy auth check (dipakai front-end lama).
     if (action === "auth") {
         return json(res, 200, { ok: body.token === adminToken() })
     }
 
-    // Sisanya butuh admin token
-    if (!isAdmin(req)) return json(res, 401, { ok: false, error: "Unauthorized" })
+    // ── Aksi di bawah butuh sesi/owner-token ──
+    const auth = await guard(req, body)
+    if (!auth.ok) return json(res, 401, { ok: false, error: "Unauthorized" })
+
+    if (action === "admins") {
+        return json(res, 200, { ok: true, items: await listAdmins(), me: auth })
+    }
+    if (action === "deladmin") {
+        const r = await deleteAdmin(body.username, auth.role)
+        return json(res, r.ok ? 200 : 403, r)
+    }
 
     // OVERVIEW
     if (action === "overview") {
@@ -70,7 +160,9 @@ export default async function handler(req, res) {
             let found = null
             await update("orders", (list) =>
                 list.map((o) =>
-                    o.id === body.id ? ((found = { ...o, status: body.status, updatedAt: Date.now() }), found) : o
+                    o.id === body.id
+                        ? ((found = { ...o, status: body.status, updatedAt: Date.now() }), found)
+                        : o
                 )
             )
             return json(res, 200, { ok: !!found, order: found })
@@ -79,7 +171,15 @@ export default async function handler(req, res) {
             let found = null
             await update("orders", (list) =>
                 list.map((o) =>
-                    o.id === body.id ? ((found = { ...o, status: "approved", provisioning: false, updatedAt: Date.now() }), found) : o
+                    o.id === body.id
+                        ? ((found = {
+                              ...o,
+                              status: "approved",
+                              provisioning: false,
+                              updatedAt: Date.now()
+                          }),
+                          found)
+                        : o
                 )
             )
             return json(res, 200, { ok: !!found, order: found })
@@ -97,7 +197,13 @@ export default async function handler(req, res) {
             await update("orders", (list) =>
                 list.map((o) =>
                     o.id === body.id
-                        ? ((updated = { ...o, status: "provisioned", licenseKey: lic.key, updatedAt: Date.now() }), updated)
+                        ? ((updated = {
+                              ...o,
+                              status: "provisioned",
+                              licenseKey: lic.key,
+                              updatedAt: Date.now()
+                          }),
+                          updated)
                         : o
                 )
             )

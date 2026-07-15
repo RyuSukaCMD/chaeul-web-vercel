@@ -14,7 +14,12 @@ export default async function handler(req, res) {
     if (action === "jobs") {
         const orders = await read("orders")
         const jobs = orders
-            .filter((o) => (o.status === "paid" || o.status === "approved") && !o.provisioning)
+            .filter(
+                (o) =>
+                    o.type !== "license" && // beli-lisensi tak perlu bot join grup
+                    (o.status === "paid" || o.status === "approved") &&
+                    !o.provisioning
+            )
             .map((o) => ({
                 id: o.id,
                 plan: o.plan,
@@ -34,7 +39,14 @@ export default async function handler(req, res) {
         if (!body.success) {
             await update("orders", (list) =>
                 list.map((o) =>
-                    o.id === body.id ? { ...o, status: "failed", failReason: body.reason || "Gagal.", updatedAt: Date.now() } : o
+                    o.id === body.id
+                        ? {
+                              ...o,
+                              status: "failed",
+                              failReason: body.reason || "Gagal.",
+                              updatedAt: Date.now()
+                          }
+                        : o
                 )
             )
             return json(res, 200, { ok: true, status: "failed" })

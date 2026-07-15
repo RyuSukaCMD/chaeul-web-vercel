@@ -92,10 +92,13 @@ export default async function handler(req, res) {
     // Buat pesanan sewa
     if (action === "order") {
         if (req.method !== "POST") return json(res, 405, { ok: false, error: "Method not allowed" })
-        const { plan, groupLink, contact, months, coupon } = getBody(req)
+        const { plan, groupLink, contact, months, coupon, type } = getBody(req)
         const p = PLANS[plan]
         if (!p) return json(res, 400, { ok: false, error: "Paket tidak valid." })
-        if (!groupLink || !/chat\.whatsapp\.com\//i.test(groupLink))
+        // type: "rent" (bot join grup) | "license" (hanya generate lisensi)
+        const orderType = type === "license" ? "license" : "rent"
+        // Sewa bot butuh link grup; beli lisensi tidak.
+        if (orderType === "rent" && (!groupLink || !/chat\.whatsapp\.com\//i.test(groupLink)))
             return json(res, 400, { ok: false, error: "Link grup WhatsApp tidak valid." })
         const mo = DURATIONS.find((d) => d.months === Number(months)) ? Number(months) : 1
 
@@ -122,13 +125,14 @@ export default async function handler(req, res) {
         )
         const order = {
             id: "ORD-" + nanoid(8).toUpperCase(),
+            type: orderType,
             plan: p.id,
             planName: p.name,
             months: mo,
             price,
             coupon: couponCode,
             couponPercent,
-            groupLink,
+            groupLink: orderType === "rent" ? groupLink : null,
             contact: contact || null,
             status: "pending",
             createdAt: Date.now()

@@ -1533,3 +1533,15 @@ img {
         animation: none !important;
     }
 }
+
+/* Dua tombol aksi di kartu harga (Sewa Bot / Beli Lisensi) */
+.price-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 4px;
+}
+.price-actions .btn {
+    width: 100%;
+    justify-content: center;
+}
