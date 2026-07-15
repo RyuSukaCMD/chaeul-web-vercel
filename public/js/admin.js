@@ -461,11 +461,28 @@
         }
         body.innerHTML = orders
             .map((o) => {
+                const isRent = o.type !== "license"
                 const link = o.groupLink
                     ? `<a href="${o.groupLink}" target="_blank" style="color:var(--brand)">link ↗</a>`
-                    : "-"
+                    : `<span class="st pending" style="font-size:.68rem">Lisensi</span>`
+                // Tombol aksi bergantung tipe order & status.
+                let actions = ""
+                if (o.status === "pending" || o.status === "paid" || o.status === "failed") {
+                    if (isRent) {
+                        // Sewa bot: 1 klik → bot join grup + register + chat + lisensi terbit.
+                        actions = `<button class="mini-btn ok" data-ord-queue="${o.id}">${o.status === "failed" ? "🔄 Coba Lagi" : "✅ ACC & Provision"}</button>`
+                    } else {
+                        // Beli lisensi: langsung terbitkan license key.
+                        actions = `<button class="mini-btn ok" data-ord-approve="${o.id}">🔑 Terbitkan Lisensi</button>`
+                    }
+                } else if (o.status === "approved") {
+                    actions = `<span style="color:var(--faint);font-size:.78rem">⏳ menunggu bot join...</span>`
+                }
+                const typeBadge = isRent
+                    ? `<span title="Sewa Bot">🤖</span>`
+                    : `<span title="Beli Lisensi">🔑</span>`
                 return `<tr>
-                <td class="mono">${o.id}</td>
+                <td class="mono">${typeBadge} ${o.id}</td>
                 <td>${o.planName || o.plan}</td>
                 <td>${link}</td>
                 <td class="mono">${o.contact || "-"}</td>
@@ -474,23 +491,10 @@
                     o.licenseKey
                         ? `<div class="mono" style="font-size:.72rem;color:var(--faint);margin-top:4px">${o.licenseKey}</div>`
                         : ""
-                }</td>
+                }${o.failReason ? `<div style="font-size:.7rem;color:#f87171;margin-top:4px">${esc(o.failReason)}</div>` : ""}</td>
                 <td>
                     <div class="row-actions">
-                        ${
-                            o.status === "pending"
-                                ? `<button class="mini-btn" data-ord-paid="${o.id}">Tandai Bayar</button>
-                                   <button class="mini-btn ok" data-ord-approve="${o.id}">Terbitkan</button>
-                                   <button class="mini-btn" data-ord-queue="${o.id}">Auto-Provision</button>`
-                                : o.status === "paid"
-                                  ? `<button class="mini-btn ok" data-ord-approve="${o.id}">Terbitkan Lisensi</button>
-                                     <button class="mini-btn" data-ord-queue="${o.id}">Auto-Provision</button>`
-                                  : o.status === "approved"
-                                    ? `<span style="color:var(--faint);font-size:.78rem">⏳ menunggu bot...</span>`
-                                    : o.status === "failed"
-                                      ? `<button class="mini-btn" data-ord-queue="${o.id}">Coba Lagi</button>`
-                                      : ""
-                        }
+                        ${actions}
                         <button class="mini-btn danger" data-ord-del="${o.id}">Hapus</button>
                     </div>
                 </td>
@@ -660,11 +664,18 @@
         )
         $$("[data-ord-queue]").forEach((b) =>
             b.addEventListener("click", async () => {
+                if (
+                    !confirm(
+                        "ACC pesanan ini?\n\nBot akan otomatis: join grup → register → chat 'grup aktif + masa aktif' → lisensi terbit."
+                    )
+                )
+                    return
                 const r = await api("/api/admin?action=order", "POST", {
                     op: "queue",
                     id: b.dataset.ordQueue
                 })
-                if (r.ok) toast("🤖 Diantre — bot akan join grup & terbitkan lisensi")
+                if (r.ok)
+                    toast("🤖 Di-ACC! Bot akan join grup, register & aktifkan dalam ±2 menit.")
                 else toast("⚠️ Gagal")
                 loadAll()
             })

@@ -61,6 +61,82 @@ export default async function handler(req, res) {
         return json(res, 200, { total: feed.length, items: feed.slice(-30) })
     }
 
+    // ── RPG page: rare log + leaderboards ──
+    if (action === "rpg") {
+        const [rarelog, lbRare, lbUser] = await Promise.all([
+            read("rarelog"),
+            read("lb_rare"),
+            read("lb_user")
+        ])
+        const mask = (n) => (n ? maskNumber(n) : null)
+        // Log tangkapan langka (Secret+) terbaru dulu.
+        const log = rarelog
+            .slice(-60)
+            .reverse()
+            .map((e) => ({
+                name: e.name || "Seseorang",
+                number: mask(e.number),
+                fish: e.fish,
+                rarity: e.rarity,
+                value: e.value,
+                island: e.island,
+                at: e.at
+            }))
+        // Leaderboard ikan terlangka.
+        const rarest = lbRare
+            .slice()
+            .sort((a, b) => (b.rank || 0) - (a.rank || 0) || (b.value || 0) - (a.value || 0))
+            .slice(0, 10)
+            .map((e) => ({
+                name: e.name || "User",
+                number: mask(e.number),
+                fish: e.fish,
+                rarity: e.rarity,
+                value: e.value
+            }))
+        // Terkaya (wealth) & terkuat (power).
+        const richest = lbUser
+            .slice()
+            .sort((a, b) => (b.wealth || 0) - (a.wealth || 0))
+            .slice(0, 10)
+            .map((e) => ({
+                name: e.name,
+                number: mask(e.number),
+                wealth: e.wealth,
+                level: e.level
+            }))
+        const strongest = lbUser
+            .slice()
+            .sort((a, b) => (b.power || 0) - (a.power || 0))
+            .slice(0, 10)
+            .map((e) => ({ name: e.name, number: mask(e.number), power: e.power, level: e.level }))
+        // Skor gabungan: normalisasi wealth+power+rarity user.
+        const maxW = Math.max(1, ...lbUser.map((u) => u.wealth || 0))
+        const maxP = Math.max(1, ...lbUser.map((u) => u.power || 0))
+        const rareByNum = {}
+        for (const r of lbRare) rareByNum[r.number || r.name] = r.rank || 0
+        const overall = lbUser
+            .slice()
+            .map((u) => {
+                const rr = rareByNum[u.number] || 0
+                const score = Math.round(
+                    ((u.wealth || 0) / maxW) * 40 +
+                        ((u.power || 0) / maxP) * 40 +
+                        (rr / 8) * 20 +
+                        (u.level || 0) * 0.2
+                )
+                return { name: u.name, number: mask(u.number), score, level: u.level }
+            })
+            .sort((a, b) => b.score - a.score)
+            .slice(0, 10)
+        return json(res, 200, {
+            log,
+            rareCount: rarelog.length,
+            leaderboards: { rarest, richest, strongest, overall },
+            updatedAt: Date.now()
+        })
+    }
+
     // Poll gabungan (pengganti SSE): stats + user + grup + fishing
     if (action === "live") {
         const [users, groups, licenses, fishing] = await Promise.all([

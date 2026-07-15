@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#0a0c12" />
+        <title>Chaeul · RPG · Rare Log & Leaderboard</title>
+        <meta
+            name="description"
+            content="Rare Fish Log & Leaderboard Chaeul — tangkapan ikan terlangka, user terkaya & terkuat."
+        />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/css/style.css" />
+        <link rel="stylesheet" href="/css/rpg.css" />
+    </head>
+    <body>
+        <div class="aurora" aria-hidden="true">
+            <span class="blob b1"></span>
+            <span class="blob b2"></span>
+            <span class="blob b3"></span>
+            <div class="grid-overlay"></div>
+        </div>
+
+        <!-- Navbar -->
+        <header class="nav scrolled" id="nav">
+            <div class="nav-inner">
+                <a href="/" class="brand">
+                    <span class="brand-mark">✦</span>
+                    <span class="brand-name">Chaeul</span>
+                </a>
+                <nav class="nav-links">
+                    <a href="/#features">Fitur</a>
+                    <a href="/#pricing">Harga</a>
+                    <a href="/rpg.html" class="active">RPG</a>
+                    <a href="/#faq">FAQ</a>
+                </nav>
+                <a href="/#pricing" class="btn btn-primary btn-sm">Sewa Sekarang</a>
+            </div>
+        </header>
+
+        <!-- Hero RPG -->
+        <section class="rpg-hero">
+            <div class="container">
+                <span class="pill"><span class="dot"></span> RPG Memancing · Live</span>
+                <h1 class="rpg-title">Rare Fish Log & <span class="grad">Leaderboard</span></h1>
+                <p class="rpg-sub">
+                    Setiap tangkapan legendaris (Secret ke atas) tercatat abadi di sini. Lihat siapa
+                    pemancing paling beruntung, sultan terkaya, dan petarung terkuat di dunia
+                    Chaeul.
+                </p>
+                <div class="rpg-hero-stats">
+                    <div class="rhs">
+                        <span class="rhs-num" id="rareCount">0</span>
+                        <span class="rhs-label">Tangkapan Langka</span>
+                    </div>
+                    <div class="rhs">
+                        <span class="rhs-num" id="anglerCount">0</span>
+                        <span class="rhs-label">Pemancing di Papan Skor</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Leaderboards -->
+        <section class="section" style="padding-top: 30px">
+            <div class="container">
+                <div class="section-head">
+                    <span class="eyebrow">🏆 Papan Peringkat</span>
+                    <h2>Sang Juara Chaeul</h2>
+                    <p>Diperbarui otomatis dari aktivitas bot secara berkala.</p>
+                </div>
+                <div class="lb-grid">
+                    <div class="lb-card">
+                        <div class="lb-head">
+                            <span class="lb-ico">🌈</span>
+                            <h3>Ikan Terlangka</h3>
+                        </div>
+                        <ol class="lb-list" id="lbRare"></ol>
+                    </div>
+                    <div class="lb-card">
+                        <div class="lb-head">
+                            <span class="lb-ico">💰</span>
+                            <h3>Terkaya</h3>
+                        </div>
+                        <ol class="lb-list" id="lbRich"></ol>
+                    </div>
+                    <div class="lb-card">
+                        <div class="lb-head">
+                            <span class="lb-ico">⚔️</span>
+                            <h3>Terkuat</h3>
+                        </div>
+                        <ol class="lb-list" id="lbStrong"></ol>
+                    </div>
+                    <div class="lb-card lb-card-wide">
+                        <div class="lb-head">
+                            <span class="lb-ico">👑</span>
+                            <h3>Peringkat Keseluruhan</h3>
+                        </div>
+                        <ol class="lb-list" id="lbOverall"></ol>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Rare Fish Log -->
+        <section class="section section-alt">
+            <div class="container">
+                <div class="section-head">
+                    <span class="eyebrow"><span class="live-dot"></span> Rare Fish Log</span>
+                    <h2>Tangkapan Legendaris</h2>
+                    <p>
+                        Hanya rarity <b>Secret</b>, <b>Ephemeral</b>, & <b>Unreal</b> yang tercatat
+                        di sini.
+                    </p>
+                </div>
+                <div class="rare-log" id="rareLog"></div>
+            </div>
+        </section>
+
+        <footer class="footer">
+            <div class="container footer-inner">
+                <div class="brand"><span class="brand-mark">✦</span> Chaeul</div>
+                <p>© <span id="year"></span> Chaeul Bot. Dibuat dengan ♥ untuk komunitas.</p>
+                <p style="margin-top: 6px; font-size: 0.85rem">
+                    <a href="/" style="color: var(--brand)">← Beranda</a>
+                    <span style="color: var(--faint)"> · </span>
+                    <a href="/user.html" style="color: var(--faint)">Panel Pengguna</a>
+                </p>
+            </div>
+        </footer>
+
+        <script src="/js/rpg.js"></script>
+    </body>
+</html>

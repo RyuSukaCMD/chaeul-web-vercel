@@ -19,6 +19,7 @@
         { "source": "/api/users", "destination": "/api/public?action=users" },
         { "source": "/api/groups", "destination": "/api/public?action=groups" },
         { "source": "/api/fishing", "destination": "/api/public?action=fishing" },
+        { "source": "/api/rpg", "destination": "/api/public?action=rpg" },
         { "source": "/api/plans", "destination": "/api/public?action=plans" },
         { "source": "/api/durations", "destination": "/api/public?action=durations" },
         { "source": "/api/order", "destination": "/api/public?action=order" },

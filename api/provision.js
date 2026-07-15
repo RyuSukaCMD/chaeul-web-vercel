@@ -53,11 +53,13 @@ export default async function handler(req, res) {
         }
         let license = null
         if (!order.licenseKey) {
+            // Durasi mengikuti bulan pesanan (1 bln = 30 hari), fallback 30 hari.
+            const days = Number(body.days) || (order.months ? order.months * 30 : 30)
             license = await createLicense({
                 plan: order.plan,
-                days: Number(body.days) || 30,
+                days,
                 ownerNumber: body.ownerNumber || order.contact || "",
-                groupJid: body.groupJid || null,
+                groupJid: body.groupJid || null, // group lock otomatis
                 groupName: body.groupName || null,
                 note: `Auto-provision order ${order.id}`
             })
