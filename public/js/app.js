@@ -14,7 +14,7 @@
         { months: 6, label: "6 Bulan", discount: 0.1 },
         { months: 12, label: "1 Tahun", discount: 0.2 }
     ]
-    fetch("/api/durations")
+    fetch("/api/public?action=durations")
         .then((r) => r.json())
         .then((d) => {
             if (Array.isArray(d) && d.length) DURATIONS = d
@@ -264,7 +264,7 @@
     // (1 request gabungan berisi stats + user + grup + fishing feed).
     async function poll() {
         try {
-            const d = await fetch("/api/live").then((r) => r.json())
+            const d = await fetch("/api/public?action=live").then((r) => r.json())
             applyStats(d.stats || {})
             renderUsers(d.users || [], d.stats?.users || 0)
             renderGroups(d.groups || [], d.stats?.groups || 0)
@@ -379,7 +379,7 @@
         $("#applyCoupon").addEventListener("click", async () => {
             const code = $("#fCoupon").value.trim().toUpperCase()
             if (!code) return
-            const r = await fetch("/api/coupon", {
+            const r = await fetch("/api/public?action=coupon", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ code })
@@ -419,7 +419,7 @@
 
         let data
         try {
-            data = await fetch("/api/order", {
+            data = await fetch("/api/public?action=order", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ plan: planId, groupLink, contact, months, coupon })
@@ -513,7 +513,7 @@
     }
 
     // load plans from API (override defaults if available)
-    fetch("/api/plans")
+    fetch("/api/public?action=plans")
         .then((r) => r.json())
         .then((list) => {
             if (Array.isArray(list) && list.length) {

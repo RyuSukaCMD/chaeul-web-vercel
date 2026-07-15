@@ -1,7 +1,21 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" }
+    { "source": "/api/sync/:action", "destination": "/api/sync?action=:action" },
+    { "source": "/api/license/verify", "destination": "/api/license?action=verify" },
+    { "source": "/api/license/manage", "destination": "/api/license?action=manage" },
+    { "source": "/api/provision/notifications/ack", "destination": "/api/provision?action=ack" },
+    { "source": "/api/provision/notifications", "destination": "/api/provision?action=notifications" },
+    { "source": "/api/provision/:action", "destination": "/api/provision?action=:action" },
+    { "source": "/api/stats", "destination": "/api/public?action=stats" },
+    { "source": "/api/live", "destination": "/api/public?action=live" },
+    { "source": "/api/users", "destination": "/api/public?action=users" },
+    { "source": "/api/groups", "destination": "/api/public?action=groups" },
+    { "source": "/api/fishing", "destination": "/api/public?action=fishing" },
+    { "source": "/api/plans", "destination": "/api/public?action=plans" },
+    { "source": "/api/durations", "destination": "/api/public?action=durations" },
+    { "source": "/api/order", "destination": "/api/public?action=order" },
+    { "source": "/api/coupon", "destination": "/api/public?action=coupon" }
   ],
   "headers": [
     {

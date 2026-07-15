@@ -1,13 +1,13 @@
 {
   "name": "chaeul-web-vercel",
   "version": "1.0.0",
-  "description": "Website sewa bot WhatsApp Chaeul — versi Vercel (serverless)",
+  "description": "Website sewa bot WhatsApp Chaeul (Vercel serverless)",
   "type": "module",
-  "scripts": {
-    "dev": "vercel dev",
-    "start": "vercel dev"
-  },
+  "private": true,
   "dependencies": {
     "nanoid": "^5.0.9"
+  },
+  "engines": {
+    "node": "20.x"
   }
 }

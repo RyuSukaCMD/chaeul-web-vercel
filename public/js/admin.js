@@ -18,7 +18,7 @@
 
     // ─── Login ───
     async function tryLogin(token) {
-        const r = await fetch("/api/admin/auth", {
+        const r = await fetch("/api/admin?action=auth", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token })
@@ -76,7 +76,7 @@
 
     // ─── Load & render ───
     async function loadAll() {
-        const r = await api("/api/admin/overview")
+        const r = await api("/api/admin?action=overview")
         if (!r.ok) {
             if (r.error === "Unauthorized") {
                 sessionStorage.removeItem("chaeul_admin")
@@ -95,7 +95,7 @@
 
     // ─── Coupons ───
     async function loadCoupons() {
-        const r = await api("/api/admin/coupon?action=list")
+        const r = await api("/api/admin?action=coupon", "POST", { op: "list" })
         if (!r.ok) return
         renderCoupons(r.items || [])
     }
@@ -124,7 +124,7 @@
         $$("[data-cpn-del]").forEach((b) =>
             b.addEventListener("click", async () => {
                 if (!confirm("Hapus kupon " + b.dataset.cpnDel + "?")) return
-                await api("/api/admin/coupon?action=delete", "POST", { code: b.dataset.cpnDel })
+                await api("/api/admin?action=coupon", "POST", { op: "delete", code: b.dataset.cpnDel })
                 toast("🗑️ Kupon dihapus")
                 loadCoupons()
             })
@@ -314,7 +314,7 @@
         )
         $$("[data-lic-extend]").forEach((b) =>
             b.addEventListener("click", async () => {
-                await fetch("/api/license/manage?action=extend", {
+                await fetch("/api/license?action=extend", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
                     body: JSON.stringify({ key: b.dataset.licExtend, days: 30 })
@@ -332,7 +332,7 @@
         $$("[data-lic-revoke]").forEach((b) =>
             b.addEventListener("click", async () => {
                 if (!confirm("Revoke lisensi ini? Bot akan berhenti.")) return
-                await fetch("/api/license/manage?action=revoke", {
+                await fetch("/api/license?action=revoke", {
                     method: "POST",
                     headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
                     body: JSON.stringify({ key: b.dataset.licRevoke })
@@ -343,7 +343,7 @@
         )
     }
     async function setLicStatus(key, status) {
-        await fetch("/api/license/manage?action=status", {
+        await fetch("/api/license?action=status", {
             method: "POST",
             headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
             body: JSON.stringify({ key, status })
@@ -355,14 +355,14 @@
     function wireOrderActions() {
         $$("[data-ord-paid]").forEach((b) =>
             b.addEventListener("click", async () => {
-                await api("/api/admin/order?action=status", "POST", { id: b.dataset.ordPaid, status: "paid" })
+                await api("/api/admin?action=order", "POST", { op: "status", id: b.dataset.ordPaid, status: "paid" })
                 toast("💰 Ditandai sudah bayar")
                 loadAll()
             })
         )
         $$("[data-ord-approve]").forEach((b) =>
             b.addEventListener("click", async () => {
-                const r = await api("/api/admin/order?action=approve", "POST", { id: b.dataset.ordApprove, days: 30 })
+                const r = await api("/api/admin?action=order", "POST", { op: "approve", id: b.dataset.ordApprove, days: 30 })
                 if (r.ok) toast("🔑 Lisensi terbit: " + r.license.key)
                 else toast("⚠️ " + (r.error || "Gagal"))
                 loadAll()
@@ -370,7 +370,7 @@
         )
         $$("[data-ord-queue]").forEach((b) =>
             b.addEventListener("click", async () => {
-                const r = await api("/api/admin/order?action=queue", "POST", { id: b.dataset.ordQueue })
+                const r = await api("/api/admin?action=order", "POST", { op: "queue", id: b.dataset.ordQueue })
                 if (r.ok) toast("🤖 Diantre — bot akan join grup & terbitkan lisensi")
                 else toast("⚠️ Gagal")
                 loadAll()
@@ -379,7 +379,7 @@
         $$("[data-ord-del]").forEach((b) =>
             b.addEventListener("click", async () => {
                 if (!confirm("Hapus pesanan ini?")) return
-                await api("/api/admin/order?action=delete", "POST", { id: b.dataset.ordDel })
+                await api("/api/admin?action=order", "POST", { op: "delete", id: b.dataset.ordDel })
                 toast("🗑️ Pesanan dihapus")
                 loadAll()
             })
@@ -413,7 +413,8 @@
         $("#ncSubmit").addEventListener("click", async () => {
             const code = $("#ncCode").value.trim().toUpperCase()
             if (!code) return toast("⚠️ Kode wajib diisi")
-            const r = await api("/api/admin/coupon?action=create", "POST", {
+            const r = await api("/api/admin?action=coupon", "POST", {
+                op: "create",
                 code,
                 percent: parseInt($("#ncPercent").value, 10) || 0,
                 maxUse: parseInt($("#ncMax").value, 10) || 0,
@@ -459,7 +460,7 @@
                 days: parseInt($("#nlDays").value, 10) || 30,
                 groupJid: $("#nlGroup").value.trim() || null
             }
-            const r = await fetch("/api/license/manage?action=create", {
+            const r = await fetch("/api/license?action=create", {
                 method: "POST",
                 headers: { "Content-Type": "application/json", "x-admin-token": TOKEN },
                 body: JSON.stringify(body)
