@@ -1,5 +1,6 @@
 import { nanoid } from "nanoid"
 import { read, update } from "../lib/store.js"
+import { isOnline } from "../lib/license.js"
 import { PLANS, DURATIONS } from "../lib/plans.js"
 import { cors, json, getBody, maskNumber } from "../lib/util.js"
 
@@ -22,6 +23,7 @@ export default async function handler(req, res) {
             users: users.length,
             groups: groups.length,
             activeLicenses: licenses.filter((l) => l.status === "active").length,
+            onlineBots: licenses.filter((l) => isOnline(l)).length,
             privateGroups: groups.filter((g) => g.type === "private").length,
             publicGroups: groups.filter((g) => g.type === "public").length,
             updatedAt: Date.now()
@@ -72,13 +74,16 @@ export default async function handler(req, res) {
                 users: users.length,
                 groups: groups.length,
                 activeLicenses: licenses.filter((l) => l.status === "active").length,
+                onlineBots: licenses.filter((l) => isOnline(l)).length,
                 privateGroups: groups.filter((g) => g.type === "private").length,
                 publicGroups: groups.filter((g) => g.type === "public").length
             },
             users: users.slice(-8).map((u) => ({
                 display: `${maskNumber(u.number)} - (${u.name || u.username || "User"})`
             })),
-            groups: groups.slice(-8).map((g) => ({ name: g.name || "Grup", type: g.type || "private" })),
+            groups: groups
+                .slice(-8)
+                .map((g) => ({ name: g.name || "Grup", type: g.type || "private" })),
             fishing: fishing.slice(-12),
             updatedAt: Date.now()
         })
@@ -99,7 +104,11 @@ export default async function handler(req, res) {
         if (coupon) {
             const code = String(coupon).trim().toUpperCase()
             const c = (await read("coupons")).find((x) => x.code === code && x.active !== false)
-            if (c && (!c.expiresAt || Date.now() <= c.expiresAt) && (!c.maxUse || (c.used || 0) < c.maxUse)) {
+            if (
+                c &&
+                (!c.expiresAt || Date.now() <= c.expiresAt) &&
+                (!c.maxUse || (c.used || 0) < c.maxUse)
+            ) {
                 couponCode = c.code
                 couponPercent = c.percent || 0
                 await update("coupons", (list) =>
@@ -108,7 +117,9 @@ export default async function handler(req, res) {
             }
         }
         const dur = DURATIONS.find((d) => d.months === mo) || DURATIONS[0]
-        const price = Math.round(p.price * dur.months * (1 - dur.discount) * (1 - couponPercent / 100))
+        const price = Math.round(
+            p.price * dur.months * (1 - dur.discount) * (1 - couponPercent / 100)
+        )
         const order = {
             id: "ORD-" + nanoid(8).toUpperCase(),
             plan: p.id,
@@ -134,8 +145,10 @@ export default async function handler(req, res) {
         const code = (getBody(req).code || "").trim().toUpperCase()
         const c = (await read("coupons")).find((x) => x.code === code && x.active !== false)
         if (!c) return json(res, 200, { ok: false, error: "Kupon tidak valid." })
-        if (c.expiresAt && Date.now() > c.expiresAt) return json(res, 200, { ok: false, error: "Kupon kadaluarsa." })
-        if (c.maxUse && (c.used || 0) >= c.maxUse) return json(res, 200, { ok: false, error: "Kupon habis." })
+        if (c.expiresAt && Date.now() > c.expiresAt)
+            return json(res, 200, { ok: false, error: "Kupon kadaluarsa." })
+        if (c.maxUse && (c.used || 0) >= c.maxUse)
+            return json(res, 200, { ok: false, error: "Kupon habis." })
         return json(res, 200, { ok: true, coupon: { code: c.code, percent: c.percent || 0 } })
     }
 

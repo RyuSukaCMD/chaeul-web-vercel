@@ -34,7 +34,9 @@
     const toggle = $("#navToggle")
     const links = $(".nav-links")
     toggle?.addEventListener("click", () => links.classList.toggle("open"))
-    $$(".nav-links a").forEach((a) => a.addEventListener("click", () => links.classList.remove("open")))
+    $$(".nav-links a").forEach((a) =>
+        a.addEventListener("click", () => links.classList.remove("open"))
+    )
 
     // ─── Reveal on scroll ───
     const io = new IntersectionObserver(
@@ -255,26 +257,37 @@
     }
 
     function applyStats(s) {
+        s = s || {}
         animateCounter($("#statUsers"), s.users || 0)
         animateCounter($("#statGroups"), s.groups || 0)
         animateCounter($("#statLic"), s.activeLicenses || 0)
+        const on = $("#statOnline")
+        if (on) animateCounter(on, s.onlineBots || 0)
     }
 
     // Vercel = serverless → tidak ada SSE. Pakai polling ke /api/live
     // (1 request gabungan berisi stats + user + grup + fishing feed).
+    let polledOnce = false
     async function poll() {
         try {
-            const d = await fetch("/api/public?action=live").then((r) => r.json())
+            const r = await fetch("/api/public?action=live")
+            if (!r.ok) throw new Error("HTTP " + r.status)
+            const d = await r.json()
             applyStats(d.stats || {})
             renderUsers(d.users || [], d.stats?.users || 0)
             renderGroups(d.groups || [], d.stats?.groups || 0)
             fishFeed.length = 0
             ;(d.fishing || []).forEach((x) => fishFeed.push(x))
             renderFishing()
+            polledOnce = true
         } catch {
-            renderUsers([], 0)
-            renderGroups([], 0)
-            renderFishing()
+            // Jangan reset tampilan ke 0 setiap gagal (bikin flicker/"ngebug").
+            // Hanya tampilkan state kosong bila memang belum pernah sukses.
+            if (!polledOnce) {
+                renderUsers([], 0)
+                renderGroups([], 0)
+                renderFishing()
+            }
         }
     }
 
@@ -359,7 +372,9 @@
         renderDurations()
         function renderDurations() {
             $("#durGrid").innerHTML = DURATIONS.map(
-                (d) => `<button type="button" class="dur-opt ${d.months === selMonths ? "active" : ""}" data-mo="${d.months}">
+                (
+                    d
+                ) => `<button type="button" class="dur-opt ${d.months === selMonths ? "active" : ""}" data-mo="${d.months}">
                     ${d.label}${d.discount ? `<span class="dur-off">-${d.discount * 100}%</span>` : ""}
                 </button>`
             ).join("")
@@ -451,16 +466,24 @@
 
         // Xendit → redirect ke invoice
         if (pay.mode === "xendit" && pay.invoice_url) {
-            modalBody.innerHTML = payShell(order, pay.amount, `
+            modalBody.innerHTML = payShell(
+                order,
+                pay.amount,
+                `
                 <a class="btn btn-primary" style="width:100%;justify-content:center"
-                   href="${pay.invoice_url}" target="_blank" rel="noopener">💳 Bayar Sekarang</a>`)
+                   href="${pay.invoice_url}" target="_blank" rel="noopener">💳 Bayar Sekarang</a>`
+            )
             return
         }
 
         // Midtrans → buka Snap popup bila script tersedia, else redirect_url
         if (pay.mode === "midtrans" && pay.token) {
-            modalBody.innerHTML = payShell(order, pay.amount, `
-                <button class="btn btn-primary" id="snapBtn" style="width:100%;justify-content:center">💳 Bayar Sekarang</button>`)
+            modalBody.innerHTML = payShell(
+                order,
+                pay.amount,
+                `
+                <button class="btn btn-primary" id="snapBtn" style="width:100%;justify-content:center">💳 Bayar Sekarang</button>`
+            )
             $("#snapBtn").addEventListener("click", () => {
                 if (window.snap) window.snap.pay(pay.token)
                 else if (pay.redirect_url) window.open(pay.redirect_url, "_blank")

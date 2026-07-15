@@ -1,15 +1,31 @@
 import { read, write, update } from "../lib/store.js"
+import { heartbeat } from "../lib/license.js"
 import { cors, json, getBody, isSync } from "../lib/util.js"
 
 const norm = (n = "") => String(n).replace(/[^0-9]/g, "")
 const FEED_MAX = 40
 
-// Endpoint sync bot → web. Aksi via ?action= : all | user | group | fishing
+// Endpoint sync bot → web. Aksi via ?action= : heartbeat | all | user | group | fishing
 export default async function handler(req, res) {
     if (cors(req, res)) return
     if (!isSync(req)) return json(res, 401, { ok: false, error: "Unauthorized" })
     const body = getBody(req)
     const action = req.query?.action
+
+    // ── HEARTBEAT CEPAT (bot kirim tiap ~1 menit) ──
+    // Menandakan bot "online" & sekaligus channel perintah balik:
+    // bila lisensi expired/suspended/revoked → { valid:false, status } →
+    // bot broadcast ke semua grup lalu masuk mode idle.
+    if (action === "heartbeat") {
+        const key = body.key
+        if (!key) return json(res, 400, { ok: false, valid: false, error: "key wajib" })
+        const r = await heartbeat(key, {
+            version: body.version,
+            groups: Number(body.groups) || 0,
+            users: Number(body.users) || 0
+        })
+        return json(res, 200, { ok: true, ...r })
+    }
 
     if (action === "all") {
         if (Array.isArray(body.users)) await write("users", body.users)
@@ -51,7 +67,8 @@ export default async function handler(req, res) {
                 members: body.members ?? null,
                 registeredAt: Date.now()
             }
-            if (idx >= 0) list[idx] = { ...list[idx], ...entry, registeredAt: list[idx].registeredAt }
+            if (idx >= 0)
+                list[idx] = { ...list[idx], ...entry, registeredAt: list[idx].registeredAt }
             else {
                 list.push(entry)
                 added = true
