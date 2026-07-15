@@ -876,8 +876,11 @@ img {
 /* ─── Auto-scroll marquee (vertical, seamless loop, no manual scroll) ─── */
 .marquee {
     position: relative;
-    height: 340px;
+    height: auto; /* default: ikut konten (statis/kosong → tanpa blank space) */
     overflow: hidden;
+}
+.marquee.looping {
+    height: 320px; /* hanya saat berputar → butuh tinggi tetap */
     /* fade atas & bawah biar item ga keliatan kepotong */
     -webkit-mask-image: linear-gradient(
         to bottom,
@@ -911,13 +914,14 @@ img {
         transform: translateY(-50%);
     }
 }
-/* static list (fallback saat data sedikit / kosong) */
+/* static list (fallback saat data sedikit / kosong) — TINGGI IKUT KONTEN,
+   supaya tidak menyisakan blank space besar di HP saat item sedikit. */
 .live-list {
     list-style: none;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    height: 340px;
+    max-height: 320px;
     overflow: hidden;
     justify-content: flex-start;
 }
@@ -1427,10 +1431,23 @@ img {
         width: 90%;
     }
     .section {
-        padding: 64px 0;
+        padding: 60px 0;
     }
     .hero {
-        padding: 130px 0 60px;
+        padding: 120px 0 40px;
+    }
+    /* live card di HP: tinggi marquee lebih pendek → tidak makan layar */
+    .marquee.looping {
+        height: 260px;
+    }
+    .live-list {
+        max-height: 260px;
+    }
+    .chat-body {
+        min-height: 240px;
+    }
+    .highlight-strip {
+        margin-bottom: 44px;
     }
 }
 
@@ -1455,6 +1472,12 @@ img {
     }
     .section-head h2 {
         font-size: 1.6rem;
+    }
+    .section-head {
+        margin-bottom: 40px;
+    }
+    .empty {
+        padding: 26px 0;
     }
     .phone {
         width: 260px;

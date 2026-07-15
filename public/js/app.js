@@ -229,16 +229,20 @@
     const MIN_LOOP = 6 // minimal item agar mulai berputar
     function paintMarquee(el, html, count) {
         if (!el) return
+        // Saat statis/kosong → tinggi ikut konten (hilangkan blank space di HP).
+        // Saat loop → pakai tinggi tetap (kelas .looping mengembalikan height).
         if (!count) {
+            el.classList.remove("looping")
             el.innerHTML = `<div class="empty">${el.dataset.empty || "Belum ada data."}</div>`
             return
         }
         if (count < MIN_LOOP) {
-            // statis (tidak loop) — rata atas
+            el.classList.remove("looping")
             el.innerHTML = `<ul class="live-list">${html}</ul>`
             return
         }
         // durasi: makin banyak item makin lama (kecepatan tetap ~enak dibaca)
+        el.classList.add("looping")
         const dur = Math.max(14, count * 2.6)
         el.innerHTML = `<div class="marquee-track" style="animation-duration:${dur}s">${html}${html}</div>`
     }

@@ -9,6 +9,7 @@ import {
     deleteLicense,
     isOnline
 } from "../lib/license.js"
+import { getConfigEntry, resetPin } from "../lib/config.js"
 import { cors, json, getBody, isAdmin } from "../lib/util.js"
 
 // Aksi via ?action= :
@@ -20,7 +21,8 @@ export default async function handler(req, res) {
 
     // ── VERIFY (dipakai bot, tanpa admin token) ──
     if (action === "verify") {
-        if (req.method !== "POST") return json(res, 405, { valid: false, reason: "Method not allowed" })
+        if (req.method !== "POST")
+            return json(res, 405, { valid: false, reason: "Method not allowed" })
         const { key, groupJid, version } = body
         if (!key) return json(res, 400, { valid: false, reason: "Key wajib diisi." })
         const result = await verifyLicense(key, { groupJid, version })
@@ -64,6 +66,15 @@ export default async function handler(req, res) {
             return json(res, 200, { ok: true, license: await revokeLicense(body.key) })
         case "delete":
             return json(res, 200, { ok: await deleteLicense(body.key) })
+        case "pin": {
+            // Lihat PIN user page milik sebuah lisensi (untuk bantu user).
+            const entry = await getConfigEntry(body.key, { create: true })
+            return json(res, 200, { ok: !!entry, pin: entry?.pin || null })
+        }
+        case "resetpin": {
+            const pin = await resetPin(body.key)
+            return json(res, 200, { ok: !!pin, pin })
+        }
         default:
             return json(res, 400, { ok: false, error: "Aksi tidak valid." })
     }

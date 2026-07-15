@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="id">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="theme-color" content="#0a0c12" />
+        <title>Chaeul · Panel Pengguna</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <link rel="stylesheet" href="/css/style.css" />
+        <link rel="stylesheet" href="/css/admin.css" />
+        <link rel="stylesheet" href="/css/user.css" />
+    </head>
+    <body class="admin-body">
+        <div class="aurora" aria-hidden="true">
+            <span class="blob b1"></span>
+            <span class="blob b2"></span>
+            <div class="grid-overlay"></div>
+        </div>
+
+        <!-- ✦ Login -->
+        <div class="login-screen" id="loginScreen">
+            <div class="login-card reveal-modal">
+                <div class="brand" style="justify-content: center; margin-bottom: 8px">
+                    <span class="brand-mark">✦</span>
+                    <span class="brand-name">Panel Pengguna</span>
+                </div>
+                <p class="modal-sub" style="text-align: center">
+                    Masuk dengan License Key & PIN kamu.
+                </p>
+                <div class="field">
+                    <label>License Key</label>
+                    <input
+                        id="keyInput"
+                        type="text"
+                        placeholder="CHAEUL-XXXX-XXXX-XXXX"
+                        autocomplete="off"
+                    />
+                </div>
+                <div class="field">
+                    <label>PIN</label>
+                    <input
+                        id="pinInput"
+                        type="password"
+                        placeholder="••••••"
+                        autocomplete="off"
+                        inputmode="numeric"
+                    />
+                    <div class="err" id="loginErr">Login gagal.</div>
+                </div>
+                <button
+                    class="btn btn-primary"
+                    id="loginBtn"
+                    style="width: 100%; justify-content: center"
+                >
+                    Masuk
+                </button>
+                <p
+                    style="
+                        text-align: center;
+                        margin-top: 16px;
+                        font-size: 0.82rem;
+                        color: var(--faint);
+                    "
+                >
+                    PIN diberikan penyedia saat lisensi dibuat ·
+                    <a href="/" style="color: var(--brand)">← Situs</a>
+                </p>
+            </div>
+        </div>
+
+        <!-- ✦ Panel -->
+        <main class="user-wrap" id="panel" style="display: none">
+            <header class="user-top">
+                <a href="/" class="brand"><span class="brand-mark">✦</span><span>Chaeul</span></a>
+                <div class="user-top-right">
+                    <span class="lic-chip" id="licChip">—</span>
+                    <button class="mini-btn" id="logoutBtn">Keluar</button>
+                </div>
+            </header>
+
+            <div class="user-container">
+                <div class="user-head">
+                    <h1>Pengaturan Bot</h1>
+                    <p>
+                        Ubah identitas, owner, dan perilaku bot kamu. Perubahan tersimpan di server
+                        dan otomatis dipakai bot.
+                    </p>
+                </div>
+
+                <!-- Identitas -->
+                <section class="ucard">
+                    <div class="ucard-head">
+                        <span class="uic">🤖</span>
+                        <h2>Identitas Bot</h2>
+                    </div>
+                    <div class="ugrid">
+                        <div class="field">
+                            <label>Nama Bot</label>
+                            <input id="fBotname" type="text" placeholder="Chaeul" maxlength="40" />
+                        </div>
+                        <div class="field">
+                            <label>Nama Owner (tampilan)</label>
+                            <input
+                                id="fOwnername"
+                                type="text"
+                                placeholder="Chaeulso"
+                                maxlength="40"
+                            />
+                        </div>
+                        <div class="field">
+                            <label>Prefix Command</label>
+                            <input id="fPrefix" type="text" placeholder="." maxlength="3" />
+                        </div>
+                        <div class="field">
+                            <label>Footer</label>
+                            <input
+                                id="fFooter"
+                                type="text"
+                                placeholder="© Chaeul 2026"
+                                maxlength="60"
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Owner -->
+                <section class="ucard">
+                    <div class="ucard-head">
+                        <span class="uic">👑</span>
+                        <h2>Nomor Owner</h2>
+                    </div>
+                    <p class="ucard-sub">
+                        Nomor yang punya akses penuh. Owner utama dari lisensi selalu aktif dan
+                        tidak bisa dihapus.
+                    </p>
+                    <div class="owner-add">
+                        <input
+                            id="ownerInput"
+                            type="text"
+                            placeholder="628xxxxxxxxxx"
+                            inputmode="numeric"
+                        />
+                        <button class="btn btn-ghost btn-sm" id="addOwnerBtn" type="button">
+                            + Tambah
+                        </button>
+                    </div>
+                    <div class="owner-list" id="ownerList"></div>
+                </section>
+
+                <!-- Perilaku -->
+                <section class="ucard">
+                    <div class="ucard-head">
+                        <span class="uic">⚙️</span>
+                        <h2>Perilaku Bot</h2>
+                    </div>
+                    <div class="toggle-list" id="toggleList"></div>
+                </section>
+
+                <!-- Sticker & Tampilan -->
+                <section class="ucard">
+                    <div class="ucard-head">
+                        <span class="uic">🎨</span>
+                        <h2>Sticker & Tautan</h2>
+                    </div>
+                    <div class="ugrid">
+                        <div class="field">
+                            <label>Sticker Pack Name</label>
+                            <input id="fPack" type="text" placeholder="Chaeul" maxlength="40" />
+                        </div>
+                        <div class="field">
+                            <label>Sticker Author</label>
+                            <input id="fAuthor" type="text" placeholder="Chaeulso" maxlength="40" />
+                        </div>
+                        <div class="field">
+                            <label>Kota Cuaca (menu)</label>
+                            <input id="fCity" type="text" placeholder="Jakarta" maxlength="40" />
+                        </div>
+                        <div class="field">
+                            <label>Link Saluran (opsional)</label>
+                            <input
+                                id="fLink"
+                                type="text"
+                                placeholder="https://whatsapp.com/channel/..."
+                                maxlength="200"
+                            />
+                        </div>
+                    </div>
+                </section>
+
+                <div class="save-bar">
+                    <span class="save-note" id="saveNote"></span>
+                    <button class="btn btn-primary" id="saveBtn">💾 Simpan Perubahan</button>
+                </div>
+            </div>
+        </main>
+
+        <div class="toast" id="toast"></div>
+        <script src="/js/user.js"></script>
+    </body>
+</html>
