@@ -189,6 +189,28 @@ export default async function handler(req, res) {
             }
             return list
         })
+        // Leaderboard "ikan terlangka" pakai data FISHDEX (all-time) dari bot.
+        await update("lb_rare", (list) => {
+            for (const u of body.users) {
+                if (!u.rarest || !u.rarest.fish) continue
+                const number = norm(u.number)
+                const cur = {
+                    number,
+                    name: (u.name || "User").toString().slice(0, 40),
+                    fish: String(u.rarest.fish).slice(0, 60),
+                    rarity: String(u.rarest.rarity || "").toLowerCase(),
+                    rank: Number(u.rarest.rank) || rarityRank(u.rarest.rarity),
+                    value: 0,
+                    count: Number(u.rarest.count) || 1,
+                    at: Date.now()
+                }
+                const idx = list.findIndex((x) => (x.number || x.name) === (number || u.name))
+                // Fishdex = sumber kebenaran → selalu timpa dgn nilai terlangka terbaru.
+                if (idx < 0) list.push(cur)
+                else list[idx] = { ...list[idx], ...cur }
+            }
+            return list
+        })
         return json(res, 200, { ok: true, count: body.users.length })
     }
 

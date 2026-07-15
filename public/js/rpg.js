@@ -8,6 +8,8 @@
         )
     const RARE_EMOJI = { secret: "🌸", ephemeral: "🌈", unreal: "🔥" }
     const RARE_LABEL = { secret: "Secret", ephemeral: "Ephemeral", unreal: "Unreal" }
+    const cap = (s) => (s ? s.charAt(0).toUpperCase() + s.slice(1) : "")
+    const rarityLabel = (r) => RARE_LABEL[r] || cap(r)
 
     $("#year").textContent = new Date().getFullYear()
 
@@ -41,8 +43,8 @@
                       lbItem(
                           i + 1,
                           e.name,
-                          `${RARE_LABEL[e.rarity] || e.rarity} · ${e.fish}`,
-                          e.value ? rp(e.value) : ""
+                          `${rarityLabel(e.rarity)} · ${e.fish}`,
+                          e.value ? rp(e.value) : e.count ? `×${e.count}` : ""
                       )
                   )
                   .join("")

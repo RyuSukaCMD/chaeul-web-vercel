@@ -85,14 +85,20 @@ export default async function handler(req, res) {
         // Leaderboard ikan terlangka.
         const rarest = lbRare
             .slice()
-            .sort((a, b) => (b.rank || 0) - (a.rank || 0) || (b.value || 0) - (a.value || 0))
+            .sort(
+                (a, b) =>
+                    (b.rank || 0) - (a.rank || 0) ||
+                    (b.count || 0) - (a.count || 0) ||
+                    (b.value || 0) - (a.value || 0)
+            )
             .slice(0, 10)
             .map((e) => ({
                 name: e.name || "User",
                 number: mask(e.number),
                 fish: e.fish,
                 rarity: e.rarity,
-                value: e.value
+                value: e.value,
+                count: e.count || 0
             }))
         // Terkaya (wealth) & terkuat (power).
         const richest = lbUser
