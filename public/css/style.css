@@ -30,6 +30,11 @@
 }
 html {
     scroll-behavior: smooth;
+    /* Cegah horizontal-scroll di HP (iOS Safari butuh guard di <html>, bukan hanya body). */
+    overflow-x: hidden;
+    width: 100%;
+    /* Hindari auto-zoom teks di iOS landscape. */
+    -webkit-text-size-adjust: 100%;
 }
 body {
     font-family: var(--font);
@@ -37,6 +42,9 @@ body {
     color: var(--text);
     line-height: 1.6;
     overflow-x: hidden;
+    width: 100%;
+    max-width: 100%;
+    position: relative;
     -webkit-font-smoothing: antialiased;
 }
 a {
@@ -46,6 +54,7 @@ a {
 img {
     max-width: 100%;
 }
+/* Gutter tunggal untuk SEMUA container → header & konten sejajar (tanpa offset). */
 .container {
     width: min(1200px, 90%);
     margin: 0 auto;
@@ -133,7 +142,8 @@ img {
     border-bottom: 1px solid var(--border);
 }
 .nav-inner {
-    width: min(1160px, 92%);
+    /* Samakan gutter dengan .container (90%) agar brand sejajar konten. */
+    width: min(1200px, 90%);
     margin: 0 auto;
     display: flex;
     align-items: center;
@@ -1360,20 +1370,36 @@ img {
 @media (max-width: 640px) {
     .nav-links {
         position: fixed;
-        top: 62px;
-        right: 4%;
-        left: 4%;
+        top: 64px;
+        /* Sejajar dengan gutter konten (5% tiap sisi = container 90%). */
+        right: 5%;
+        left: 5%;
         flex-direction: column;
-        gap: 6px;
-        background: rgba(14, 17, 25, 0.95);
+        gap: 4px;
+        background: rgba(14, 17, 25, 0.97);
         backdrop-filter: blur(18px);
         border: 1px solid var(--border);
         border-radius: 18px;
-        padding: 16px;
+        padding: 12px;
+        box-shadow: var(--shadow);
         transform: translateY(-10px);
         opacity: 0;
         pointer-events: none;
         transition: 0.3s var(--ease);
+    }
+    /* Item menu jadi baris penuh (touch target besar & rapi). */
+    .nav-links a {
+        display: block;
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-size: 1rem;
+    }
+    .nav-links a:hover,
+    .nav-links a:active {
+        background: var(--surface);
+    }
+    .nav-links a::after {
+        display: none;
     }
     .nav-links.open {
         transform: translateY(0);
@@ -1489,7 +1515,7 @@ img {
 /* HP sangat kecil (≤360px) */
 @media (max-width: 360px) {
     .container {
-        width: 94%;
+        width: 92%;
     }
     .hero-title {
         font-size: 1.7rem;
@@ -1500,6 +1526,37 @@ img {
     }
     .hstat {
         min-width: 45%;
+    }
+    .toast {
+        left: 5%;
+        right: 5%;
+        transform: translateY(30px);
+        text-align: center;
+    }
+    .toast.show {
+        transform: translateY(0);
+    }
+}
+
+/* Di HP, kecilkan blob aurora agar tidak pernah memicu scroll horizontal. */
+@media (max-width: 640px) {
+    .aurora {
+        contain: strict;
+    }
+    .b1,
+    .b2,
+    .b3 {
+        width: 300px;
+        height: 300px;
+        filter: blur(60px);
+    }
+    /* Toast: jangan sampai lebih lebar dari layar. */
+    .toast {
+        max-width: 90vw;
+    }
+    /* Modal: beri ruang aman dari tepi layar. */
+    .modal {
+        padding: 14px;
     }
 }
 

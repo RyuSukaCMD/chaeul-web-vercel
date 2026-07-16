@@ -9,6 +9,11 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+    /* Sejajarkan konten header dengan .user-container (max 820px, terpusat). */
+    width: 100%;
+    max-width: calc(820px + 10%);
+    margin: 0 auto;
     padding: 16px 5%;
     border-bottom: 1px solid var(--border);
     background: rgba(10, 12, 18, 0.72);
@@ -244,10 +249,12 @@
         grid-template-columns: 1fr;
     }
     .user-container {
-        padding: 28px 0 100px;
+        /* Samakan gutter dengan header (5% tiap sisi) agar konten sejajar. */
+        width: 90%;
+        padding: 24px 0 100px;
     }
     .ucard {
-        padding: 22px;
+        padding: 20px 18px;
     }
     .save-bar {
         flex-direction: column;
@@ -255,5 +262,32 @@
     }
     .save-bar .btn {
         justify-content: center;
+    }
+    /* Header sticky: rapikan agar chip lisensi & tombol tidak mepet/overflow. */
+    .user-top {
+        padding: 12px 5%;
+        gap: 10px;
+    }
+    .user-top-right {
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+    .lic-chip {
+        font-size: 0.72rem;
+        padding: 5px 10px;
+        max-width: 46vw;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+/* HP kecil: kartu & input lebih lega untuk jari. */
+@media (max-width: 400px) {
+    .user-container {
+        width: 92%;
+    }
+    .ucard {
+        padding: 18px 14px;
     }
 }

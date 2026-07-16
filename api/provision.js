@@ -1,14 +1,35 @@
 import { read, update } from "../lib/store.js"
-import { createLicense } from "../lib/license.js"
+import { createLicense, getLicenseByGroup } from "../lib/license.js"
 import { cors, json, getBody, isSync } from "../lib/util.js"
 
 // Endpoint provisioning & notifikasi (bot). Aksi via ?action=:
-//   jobs | report | notifications | ack
+//   jobs | groupstatus | report | notifications | ack
 export default async function handler(req, res) {
     if (cors(req, res)) return
     if (!isSync(req)) return json(res, 401, { ok: false, error: "Unauthorized" })
     const body = getBody(req)
     const action = req.query?.action || body.action
+
+    // ── Cek apakah sebuah grup SUDAH terdaftar (punya lisensi aktif) ──
+    // Bot memanggil ini sebelum join agar tidak dobel-join grup yang sudah punya bot.
+    if (action === "groupstatus") {
+        const groupJid = body.groupJid || req.query?.groupJid
+        if (!groupJid) return json(res, 400, { ok: false, error: "groupJid wajib." })
+        const lic = await getLicenseByGroup(groupJid)
+        return json(res, 200, {
+            ok: true,
+            exists: !!lic,
+            license: lic
+                ? {
+                      key: lic.key,
+                      plan: lic.plan,
+                      expiresAt: lic.expiresAt,
+                      groupName: lic.groupName,
+                      maxMembers: lic.maxMembers ?? null
+                  }
+                : null
+        })
+    }
 
     // ── Job provisioning (order approved) ──
     if (action === "jobs") {
@@ -17,7 +38,11 @@ export default async function handler(req, res) {
             .filter(
                 (o) =>
                     o.type !== "license" && // beli-lisensi tak perlu bot join grup
-                    (o.status === "paid" || o.status === "approved") &&
+                    // paid/approved = order baru; needs_approval/restricted = retry otomatis
+                    (o.status === "paid" ||
+                        o.status === "approved" ||
+                        o.status === "needs_approval" ||
+                        o.status === "restricted") &&
                     !o.provisioning
             )
             .map((o) => ({
@@ -38,19 +63,36 @@ export default async function handler(req, res) {
         if (!order) return json(res, 404, { ok: false, error: "Order tidak ditemukan." })
 
         if (!body.success) {
+            // Status kegagalan yang bisa dilaporkan bot:
+            //   already_exists  → grup sudah punya bot/lisensi aktif (butuh perhatian admin)
+            //   needs_approval  → grup butuh persetujuan admin untuk join (pending)
+            //   over_limit      → jumlah anggota melebihi batas paket private
+            //   restricted      → akun bot dibatasi WhatsApp (invite manual)
+            //   failed          → error umum lainnya
+            const KNOWN = ["already_exists", "needs_approval", "over_limit", "restricted"]
+            const st = KNOWN.includes(body.status) ? body.status : "failed"
             await update("orders", (list) =>
                 list.map((o) =>
                     o.id === body.id
                         ? {
                               ...o,
-                              status: "failed",
+                              status: st,
                               failReason: body.reason || "Gagal.",
+                              groupJid: body.groupJid || o.groupJid,
+                              groupName: body.groupName || o.groupName,
+                              members: body.members ?? o.members,
+                              // needs_approval/restricted masih bisa dicoba lagi otomatis nanti,
+                              // jadi JANGAN tandai provisioning=true (biar tetap jadi job).
+                              provisioning:
+                                  st === "needs_approval" || st === "restricted"
+                                      ? false
+                                      : o.provisioning,
                               updatedAt: Date.now()
                           }
                         : o
                 )
             )
-            return json(res, 200, { ok: true, status: "failed" })
+            return json(res, 200, { ok: true, status: st })
         }
         let license = null
         if (!order.licenseKey) {
